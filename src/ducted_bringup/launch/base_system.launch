@@ -1,0 +1,18 @@
+<launch>
+  <!-- Step 1 safety default: hardware drivers stay disabled until base integration. -->
+  <arg name="start_mavros" default="false" />
+  <arg name="start_livox" default="false" />
+  <arg name="fcu_url" default="/dev/ttyTHS0:921600" />
+  <arg name="gcs_url" default="" />
+  <arg name="livox_launch" default="$(find livox_ros_driver2)/launch_ROS1/msg_MID360.launch" />
+  <arg name="config_file" default="$(find ducted_bringup)/config/base_system.yaml" />
+
+  <rosparam command="load" file="$(arg config_file)" ns="ducted" />
+
+  <include if="$(arg start_mavros)" file="$(find mavros)/launch/px4.launch">
+    <arg name="fcu_url" value="$(arg fcu_url)" />
+    <arg name="gcs_url" value="$(arg gcs_url)" />
+  </include>
+
+  <include if="$(arg start_livox)" file="$(arg livox_launch)" />
+</launch>

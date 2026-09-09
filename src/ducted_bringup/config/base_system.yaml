@@ -1,0 +1,17 @@
+frames:
+  map: map
+  odom: odom
+  base_link: base_link
+  lidar: livox_frame
+
+topics:
+  mavros_state: /mavros/state
+  rc_in: /mavros/rc/in
+  lidar_points: /livox/lidar
+  lidar_imu: /livox/imu
+  terrain_height: /ducted/terrain_height
+  system_ready: /ducted/system/ready
+
+height:
+  localization_reference: absolute_map_height
+  avoidance_reference: above_ground_level
