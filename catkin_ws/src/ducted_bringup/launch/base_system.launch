@@ -1,0 +1,31 @@
+<launch>
+  <arg name="start_mavros" default="true" />
+  <arg name="start_livox" default="true" />
+  <arg name="start_health_monitor" default="true" />
+  <arg name="fcu_url" default="/dev/ttyTHS0:921600" />
+  <arg name="gcs_url" default="" />
+  <arg name="respawn_mavros" default="true" />
+  <arg name="config_file" default="$(find ducted_bringup)/config/base_system.yaml" />
+
+  <rosparam command="load" file="$(arg config_file)" ns="ducted" />
+
+  <include if="$(arg start_mavros)" file="$(find ducted_bringup)/launch/mavros.launch">
+    <arg name="fcu_url" value="$(arg fcu_url)" />
+    <arg name="gcs_url" value="$(arg gcs_url)" />
+    <arg name="respawn_mavros" value="$(arg respawn_mavros)" />
+  </include>
+
+  <include if="$(arg start_livox)" file="$(find ducted_bringup)/launch/livox.launch" />
+
+  <group if="$(arg start_health_monitor)" ns="ducted">
+    <node pkg="ducted_bringup"
+          type="base_health_monitor.py"
+          name="base_health_monitor"
+          output="screen"
+          required="true">
+      <param name="config_namespace" value="/ducted" />
+      <param name="require_mavros" value="$(arg start_mavros)" />
+      <param name="require_livox" value="$(arg start_livox)" />
+    </node>
+  </group>
+</launch>

@@ -1,0 +1,24 @@
+frames:
+  map: map
+  odom: odom
+  base_link: base_link
+  lidar: livox_frame
+
+topics:
+  mavros_state: /mavros/state
+  rc_in: /mavros/rc/in
+  lidar_points: /livox/lidar
+  lidar_imu: /livox/imu
+  terrain_height: /ducted/terrain/height
+  system_ready: /ducted/system/ready
+  diagnostics: /diagnostics
+
+health:
+  mavros_timeout_sec: 3.0
+  lidar_timeout_sec: 2.0
+  startup_grace_sec: 15.0
+  publish_rate_hz: 2.0
+
+height:
+  localization_reference: absolute_map_height
+  avoidance_reference: above_ground_level

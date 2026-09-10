@@ -1,0 +1,5 @@
+string command
+geometry_msgs/PoseStamped target
+---
+bool accepted
+string message

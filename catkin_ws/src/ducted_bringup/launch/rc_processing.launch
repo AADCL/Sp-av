@@ -1,0 +1,14 @@
+<launch>
+  <arg name="mapping_confirmed" default="false" />
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="base_ready_timeout" default="15.0" />
+  <node pkg="ducted_control" type="rc_monitor.py" name="rc_monitor" required="true" output="screen">
+    <rosparam command="load" file="$(find ducted_control)/config/rc.yaml" />
+    <param name="mapping_confirmed" value="$(arg mapping_confirmed)" />
+    <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />
+    <remap from="input" to="/mavros/rc/in" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="state" to="/ducted/rc/state" />
+    <remap from="ready" to="/ducted/rc/ready" />
+  </node>
+</launch>

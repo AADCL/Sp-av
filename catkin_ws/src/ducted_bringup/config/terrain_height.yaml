@@ -1,0 +1,36 @@
+frames:
+  map: map
+  output: odom
+  sensor: livox_frame
+  base: base_link
+
+# The external odometry adapter must provide exact-time odom->map and
+# livox_frame->base_link TF. It may run on a preview output topic while MAVROS
+# injection remains disabled; this launch file does not start flight hardware.
+agl_reference: base_link
+# body_vertices comes from the shared airframe_geometry.yaml loaded by launch.
+reference_confirmed: false
+
+terrain:
+  radius: 1.0
+  ground_quantile: 0.25
+  ground_band: 0.15
+  min_points: 20
+  max_below: 5.0
+  max_above: 0.1
+  min_agl: 0.0
+  max_agl: 4.0
+  max_variance: 0.03
+  max_slope: 1.0
+  min_planar_variance: 0.0025
+  min_support_extent: 0.1
+  max_step_height: 5.0
+
+timeouts:
+  odom: 0.5
+  cloud: 0.5
+  base_ready: 1.0
+  max_header_age: 0.25
+  future_tolerance: 0.05
+  odom_cloud_skew: 0.05
+  tf_lookup: 0.05

@@ -1,0 +1,170 @@
+{
+  "mapping.launch": {
+    "nodes": [
+      "fast_lio_sam/fastlio_sam_mapping"
+    ],
+    "parameters": {
+      "/mapping/extrinsic_est_en": false,
+      "/mapping/extrinsic_T": [
+        -0.011,
+        -0.02329,
+        0.04412
+      ],
+      "/mapping/extrinsic_R": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "relocalization.launch": {
+    "nodes": [
+      "sfast_lio/sfastlio_mapping_relocalization"
+    ],
+    "parameters": {
+      "/mapping/extrinsic_est_en": false,
+      "/mapping/extrinsic_T": [
+        -0.011,
+        -0.02329,
+        0.04412
+      ],
+      "/mapping/extrinsic_R": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "external_odometry.launch": {
+    "nodes": [
+      "ducted_bringup/fastlio_odometry_adapter.py"
+    ],
+    "parameters": {
+      "/fastlio_odometry_adapter/input_contract_confirmed": false,
+      "/fastlio_odometry_adapter/extrinsic/base_to_livox/translation": [
+        0.13,
+        0.0,
+        0.0
+      ],
+      "/fastlio_odometry_adapter/extrinsic/base_to_livox/rpy": [
+        0.03,
+        0.4567,
+        0.0
+      ],
+      "/fastlio_odometry_adapter/extrinsic/base_to_livox/status": "reused_unverified",
+      "/fastlio_odometry_adapter/extrinsic/base_to_livox/source": "/home/nrc/spirit-wing_v1.0 factory ducted-quadrotor MID360 launch files via base_link->lidar_link and identity lidar_link->livox_frame"
+    }
+  },
+  "terrain_height.launch": {
+    "nodes": [
+      "ducted_bringup/terrain_height_node.py"
+    ],
+    "parameters": {
+      "/terrain_height/body_vertices": [
+        [
+          -0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          0.35,
+          0.1
+        ]
+      ],
+      "/terrain_height/reference_confirmed": false
+    }
+  },
+  "local_avoidance.launch": {
+    "nodes": [
+      "ducted_navigation/ducted_navigation_node.py"
+    ],
+    "parameters": {
+      "/ducted_navigation/body_vertices": [
+        [
+          -0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          0.35,
+          0.1
+        ]
+      ],
+      "/ducted_navigation/geometry_confirmed": false
+    }
+  }
+}

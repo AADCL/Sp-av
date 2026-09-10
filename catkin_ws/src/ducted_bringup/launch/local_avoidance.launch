@@ -1,0 +1,31 @@
+<launch>
+  <arg name="enable_output" default="false" />
+  <arg name="geometry_confirmed" default="false" />
+  <arg name="odom_topic" default="/mavros/odometry/out" />
+  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="config_file" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
+  <arg name="geometry_file" default="$(find ducted_bringup)/config/airframe_geometry.yaml" />
+
+  <node pkg="ducted_navigation"
+        type="ducted_navigation_node.py"
+        name="ducted_navigation"
+        output="screen"
+        required="true">
+    <rosparam command="load" file="$(arg geometry_file)" />
+    <rosparam command="load" file="$(arg config_file)" />
+    <param name="enable_output" value="$(arg enable_output)" />
+    <param name="geometry_confirmed" value="$(arg geometry_confirmed)" />
+    <remap from="odom" to="$(arg odom_topic)" />
+    <remap from="cloud" to="$(arg cloud_topic)" />
+    <remap from="terrain" to="/ducted/terrain/height" />
+    <remap from="controller_status" to="/ducted/control/status" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="external_ready" to="/ducted/external_odometry/ready" />
+    <remap from="terrain_ready" to="/ducted/terrain/ready" />
+    <remap from="command" to="/ducted/navigation/command" />
+    <remap from="target" to="/ducted/control/target" />
+    <remap from="status" to="/ducted/navigation/status" />
+    <remap from="preview" to="/ducted/navigation/preview" />
+  </node>
+</launch>

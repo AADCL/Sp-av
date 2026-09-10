@@ -1,0 +1,10 @@
+std_msgs/Header header
+string mission_id
+string session_id
+uint32 epoch
+uint32 waypoint_index
+uint32 waypoint_count
+uint32 retry
+string request_id
+string state
+string reason

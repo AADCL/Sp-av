@@ -1,0 +1,25 @@
+<launch>
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="base_ready_timeout" default="15.0" />
+  <arg name="odom_topic" default="/ducted/localization/odom" />
+  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <arg name="reference_confirmed" default="false" />
+  <arg name="geometry_file" default="$(find ducted_bringup)/config/airframe_geometry.yaml" />
+
+  <node pkg="ducted_bringup"
+        type="terrain_height_node.py"
+        name="terrain_height"
+        output="screen"
+        required="true">
+    <rosparam command="load" file="$(arg geometry_file)" />
+    <rosparam command="load" file="$(find ducted_bringup)/config/terrain_height.yaml" />
+    <param name="require_base_ready" value="true" />
+    <param name="base_ready_topic" value="$(arg base_ready_topic)" />
+    <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />
+    <param name="reference_confirmed" value="$(arg reference_confirmed)" />
+    <remap from="odom" to="$(arg odom_topic)" />
+    <remap from="cloud" to="$(arg cloud_topic)" />
+    <remap from="height" to="/ducted/terrain/height" />
+    <remap from="ready" to="/ducted/terrain/ready" />
+  </node>
+</launch>

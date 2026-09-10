@@ -1,0 +1,53 @@
+frames:
+  odom: odom
+  map: map
+  base: base_link
+
+# Both gates require explicit measured-airframe acceptance before output is possible.
+enable_output: false
+geometry_confirmed: false
+agl_reference: base_link
+# body_vertices and geometry_measurement_source are loaded from the shared
+# ducted_bringup/config/airframe_geometry.yaml before this configuration.
+
+planner:
+  sector_count: 72
+  lookahead: 1.0
+  waypoint_step: 0.3
+  obstacle_clearance: 0.1
+  min_passage_width: 0.7
+  sensor_horizon: 2.0
+  max_speed: 0.5
+  max_acceleration: 0.5
+  braking_acceleration: 0.8
+  max_vertical_speed: 0.3
+  min_agl: 0.4
+  max_agl: 2.5
+  floor_clearance: 0.1
+  ceiling_clearance: 0.1
+  max_terrain_variance: 0.02
+  goal_tolerance: 0.15
+  progress_epsilon: 0.05
+  progress_timeout: 2.0
+  blocked_hold: 0.3
+  obstacle_persistence: 0.6
+  prediction_horizon: 0.8
+  max_track_displacement: 0.6
+  min_prediction_speed: 0.5
+  max_steering_angle: 1.0471975512
+  heading_weight: 1.0
+  hysteresis_weight: 0.35
+  clearance_weight: 0.12
+  voxel_size: 0.08
+  # Reserve motion between the cloud-time snapshot and final publication.
+  snapshot_motion_margin: 0.05
+  snapshot_speed_margin: 0.1
+
+timeouts:
+  source: 0.5
+  arrival: 0.5
+  readiness: 1.5
+  future_tolerance: 0.05
+  max_skew: 0.08
+  tf_wait: 0.06
+  watchdog_period: 0.1

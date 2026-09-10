@@ -1,0 +1,33 @@
+<launch>
+  <arg name="map_file" default="/home/nrc/catkin_ws/maps/GlobalMap.pcd" />
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="base_ready_timeout" default="15.0" />
+
+  <rosparam command="load" file="$(find ducted_bringup)/config/relocalization_mid360.yaml" />
+
+  <node pkg="sfast_lio"
+        type="sfastlio_mapping_relocalization"
+        name="relocalization"
+        output="screen"
+        required="true">
+    <param name="globalmap_dir" value="$(arg map_file)" />
+    <param name="require_base_ready" value="true" />
+    <param name="base_ready_topic" value="$(arg base_ready_topic)" />
+    <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />
+
+    <remap from="/livox/lidar" to="/livox/lidar" />
+    <remap from="/livox/imu" to="/livox/imu" />
+    <remap from="/initialpose" to="/ducted/relocalization/initialpose" />
+    <remap from="/Odometry" to="/ducted/localization/odom" />
+    <remap from="/path" to="/ducted/localization/path" />
+    <remap from="/Odometry_relocal" to="/ducted/relocalization/scan_matching_odom" />
+    <remap from="/gobal_map_relocal" to="/ducted/relocalization/global_map" />
+    <remap from="/local_map_relocal" to="/ducted/relocalization/local_map" />
+    <remap from="/registed_current_scan" to="/ducted/relocalization/registered_scan" />
+    <remap from="/beforeRegisted" to="/ducted/relocalization/initial_guess_cloud" />
+    <remap from="/initguess" to="/ducted/relocalization/initial_guess_marker" />
+    <remap from="/relocalization_ready" to="/ducted/relocalization/ready" />
+    <remap from="/cloud_registered" to="/ducted/relocalization/cloud_registered" />
+    <remap from="/cloud_registered_body" to="/ducted/relocalization/cloud_body" />
+  </node>
+</launch>

@@ -1,0 +1,27 @@
+<launch>
+  <arg name="enable_commands" default="false" />
+  <arg name="mission_file" default="$(find ducted_mission)/config/mission.yaml" />
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="rc_state_topic" default="/ducted/rc/state" />
+  <arg name="odom_topic" default="/mavros/odometry/out" />
+  <arg name="terrain_topic" default="/ducted/terrain/height" />
+  <arg name="terrain_ready_topic" default="/ducted/terrain/ready" />
+  <arg name="navigation_status_topic" default="/ducted/navigation/status" />
+  <arg name="control_status_topic" default="/ducted/control/status" />
+
+  <node pkg="ducted_mission" type="waypoint_mission.py" name="waypoint_mission"
+        ns="ducted/mission" required="true" output="screen">
+    <param name="enable_commands" value="$(arg enable_commands)" />
+    <param name="mission_file" value="$(arg mission_file)" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="rc_state" to="$(arg rc_state_topic)" />
+    <remap from="odom" to="$(arg odom_topic)" />
+    <remap from="terrain" to="$(arg terrain_topic)" />
+    <remap from="terrain_ready" to="$(arg terrain_ready_topic)" />
+    <remap from="navigation_status" to="$(arg navigation_status_topic)" />
+    <remap from="control_status" to="$(arg control_status_topic)" />
+    <remap from="navigation_command" to="/ducted/navigation/command" />
+    <remap from="control_command" to="/ducted/control/command" />
+    <remap from="status" to="/ducted/mission/status" />
+  </node>
+</launch>

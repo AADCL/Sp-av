@@ -1,0 +1,3 @@
+# Preserve the exact bytes exported from the aircraft.
+* -text
+*.pcd binary

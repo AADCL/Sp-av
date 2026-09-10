@@ -1,0 +1,2342 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "default_status_available",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "default_output_gate",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "enabled_status_available",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 38\n  stamp: \n    secs: 1789031407\n    nsecs: 453594684\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "continuous_prestream",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_absolute_takeoff",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "takeoff_actual_pose_dwell",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "planner_id_ack_and_motion",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "planner_dropout_grace",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "planner_dropout_posctl",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "no_automatic_reentry",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 198\n  stamp: \n    secs: 1789031415\n    nsecs: 611054658\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.7\n    y: 0.0\n    z: 0.6\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "explicit_release_mode",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "release_feedback_disabled",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 225\n  stamp: \n    secs: 1789031416\n    nsecs: 984534025\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.7\n    y: 0.0\n    z: 0.6\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "wrong_pose_frame_revokes",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 255\n  stamp: \n    secs: 1789031418\n    nsecs: 512407064\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.7\n    y: 0.0\n    z: 0.6\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "rc_manual_handoff",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 286\n  stamp: \n    secs: 1789031420\n    nsecs:  90219736\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.7\n    y: 0.0\n    z: 0.6\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "external_dropout_revokes",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_engage_accepted",
+      "passed": true,
+      "detail": "engage prestream started"
+    },
+    {
+      "name": "offboard_feedback_owned",
+      "passed": true,
+      "detail": "header: \n  seq: 322\n  stamp: \n    secs: 1789031421\n    nsecs: 920112371\n  frame_id: \"odom\"\nstate: \"HOLD\"\nreason: \"OFFBOARD ownership confirmed\"\nready: True\nrequest_id: ''\ntarget: \n  position: \n    x: 0.7\n    y: 0.0\n    z: 0.6\n  orientation: \n    x: 0.0\n    y: 0.0\n    z: 0.0\n    w: 1.0"
+    },
+    {
+      "name": "explicit_land",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "land_actual_feedback",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "kill_latches",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "explicit_disarmed_reset",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "no_arm_service",
+      "passed": true,
+      "detail": null
+    }
+  ],
+  "mode_calls": [
+    [
+      4014.423063956,
+      "OFFBOARD"
+    ],
+    [
+      4020.796831575,
+      "POSCTL"
+    ],
+    [
+      4022.574407723,
+      "OFFBOARD"
+    ],
+    [
+      4022.676099285,
+      "POSCTL"
+    ],
+    [
+      4023.949803589,
+      "OFFBOARD"
+    ],
+    [
+      4025.476110934,
+      "OFFBOARD"
+    ],
+    [
+      4025.578236841,
+      "POSCTL"
+    ],
+    [
+      4027.053789694,
+      "OFFBOARD"
+    ],
+    [
+      4028.883499226,
+      "OFFBOARD"
+    ],
+    [
+      4028.986257209,
+      "AUTO.LAND"
+    ]
+  ],
+  "statuses": [
+    [
+      4009.19962031,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.238066356,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.289694325,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.339778244,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.390123733,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.440691113,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.491172092,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.541678032,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.59220474,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.64279468,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4009.693364588,
+      "DISABLED",
+      "flight output disabled",
+      ""
+    ],
+    [
+      4012.586814637,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.637227505,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.687663286,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.738211164,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.788767618,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.839131622,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.889654828,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.940101776,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4012.990798872,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.041292865,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.091796109,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.142314745,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.192887941,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.243247887,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.293853179,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.344523337,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4013.395468122,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.446167048,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.497008024,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.547857384,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.598992572,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.650453812,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.701208803,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.751977394,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.802857698,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.853709714,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.904696196,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4013.956968422,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.006515109,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.057382843,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.108209232,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.158922949,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.209718714,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.2605412,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.313007515,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.362158011,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4014.414259937,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4014.464108714,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4014.515308868,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.566517439,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.616838318,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.667451457,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.718468249,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.769100044,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.819867457,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.870648759,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.922610555,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4014.973711924,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.02469899,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.075670667,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.126427558,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.177306466,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.228239775,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.280860435,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.331625773,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.383718074,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.433338694,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.484244066,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.535152895,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.586427585,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.637521984,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.688631743,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.73986656,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.790632123,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.841491479,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.8923701,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.943243344,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4015.993977706,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.045054573,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.096613081,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.147499579,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.198495967,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.249755622,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.300607208,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.351662733,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.402552815,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.453725014,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.504513271,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.55563574,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.606602208,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.657850151,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.709201328,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.759982289,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.81106223,
+      "TAKEOFF",
+      "climbing to absolute odom target",
+      ""
+    ],
+    [
+      4016.862123066,
+      "HOLD",
+      "takeoff target reached; holding",
+      ""
+    ],
+    [
+      4016.913403714,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4016.964399366,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.015678766,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.066736281,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.118446028,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.169373365,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.220267773,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.271043492,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.321592424,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.372937303,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.424267173,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.475699861,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.528310228,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.578928409,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.629794593,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.680878156,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.731641075,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.782588668,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.833579494,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.884312396,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.936250434,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4017.987815124,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.0399652,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.090617019,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.141354376,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.192456921,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.243275366,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.294062195,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.345046371,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.395681934,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.446438394,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.49712103,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.549729259,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.599180838,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.650410105,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.701186406,
+      "TRACK",
+      "tracking accepted planner stream",
+      "goal_a"
+    ],
+    [
+      4018.751998163,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4018.803162693,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4018.853749904,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4018.90481632,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4018.95566667,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.00680464,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.057744404,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.10863204,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.159406843,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.210532082,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.261292965,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.312181657,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.362957644,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.415130097,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.465975973,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.518685906,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.568104754,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.618756931,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.669946172,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.720741966,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.771709348,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.822749722,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.873374283,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.92592767,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4019.978010746,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.028219303,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.07961796,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.129986427,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.181342875,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.231665838,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.282861292,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.333527651,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.38450339,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.435494778,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.486498165,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.537490353,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.588415596,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.639227365,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.689969565,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.740912247,
+      "HOLD_GRACE",
+      "planner stream expired; holding actual pose",
+      "goal_a"
+    ],
+    [
+      4020.793128292,
+      "RELEASING",
+      "planner grace expired; releasing to POSCTL",
+      ""
+    ],
+    [
+      4020.843540759,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4020.894968377,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4020.944656322,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4020.995074166,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.045644496,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.096235403,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.146695653,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.197195456,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.247767196,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.298324151,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.348620495,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.399742418,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.449950184,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.500495619,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4021.551297506,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.602162114,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.653566985,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.704778701,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.755342217,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.806019142,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.856934918,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.907518626,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4021.958553412,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.009192576,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.060166855,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.11118363,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.161756112,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.212732919,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.263423962,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.314408769,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.365838894,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.416589522,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.467363574,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.518357629,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.569334916,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4022.621311897,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4022.671768601,
+      "RELEASING",
+      "operator release requested",
+      ""
+    ],
+    [
+      4022.722481948,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4022.772889627,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4022.823311675,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4022.873812507,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4022.924780002,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4022.975643431,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.02632286,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.076955572,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.127488602,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.178625257,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.229397587,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.280272991,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.331203499,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.382032309,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.432909281,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.485715207,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.535619461,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.586621426,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.637612511,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.688147558,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.73934879,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.790212353,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.841136045,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.891843702,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4023.9429177,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4023.994737181,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4024.045444682,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.096560126,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.146553283,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.197206833,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.247663324,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.298509645,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.349289629,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.399314498,
+      "DISABLED",
+      "pose unavailable or stale",
+      ""
+    ],
+    [
+      4024.450270708,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.501207078,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.552218265,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.603437711,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.654785991,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.705838395,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.757032912,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.808282439,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.860940113,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.910098282,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4024.960999004,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.011890509,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.062791972,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.114557832,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.164324271,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.215236358,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.266212351,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.317069365,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.36874492,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.419353899,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4025.470448325,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4025.522703824,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4025.573483909,
+      "RELEASING",
+      "RC manual release",
+      ""
+    ],
+    [
+      4025.62435142,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.674797869,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.725383807,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.775729103,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.826257985,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.877203577,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.92727162,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4025.977730101,
+      "DISABLED",
+      "control released; operator engage required",
+      ""
+    ],
+    [
+      4026.028853489,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.07997509,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.132175713,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.182716025,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.234908233,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.284599988,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.335756085,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.386642322,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.437726513,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.488390731,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.538983876,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.590065411,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.64111885,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.691966591,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.743111871,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.793650743,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.844448467,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.895290895,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.946127211,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4026.997556239,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4027.048573778,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4027.101091308,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.151306565,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.202031813,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.252974089,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.303602247,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.354464554,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.405296875,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4027.455652006,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.506215076,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.556622016,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.607087228,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.657865213,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.708034293,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.758578387,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.809002894,
+      "DISABLED",
+      "external/FCU matched pose pair unavailable or stale",
+      ""
+    ],
+    [
+      4027.859722062,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4027.911644096,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4027.962284447,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.013891692,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.064256781,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.114957138,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.165815738,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.216653153,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.26726295,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.318222095,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.369853538,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.419951167,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.47080359,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.521917234,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.572779514,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.623594977,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.674309991,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.726434337,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.776515261,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.828644504,
+      "PRESTREAM",
+      "prestreaming captured pose",
+      ""
+    ],
+    [
+      4028.878446352,
+      "MODE_WAIT",
+      "OFFBOARD request pending",
+      ""
+    ],
+    [
+      4028.930376904,
+      "HOLD",
+      "OFFBOARD ownership confirmed",
+      ""
+    ],
+    [
+      4028.981436658,
+      "LAND_MODE_WAIT",
+      "AUTO.LAND request pending",
+      ""
+    ],
+    [
+      4029.033430669,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.083949846,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.134540607,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.185287723,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.23744494,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.287968692,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.338497405,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.389185128,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.439812498,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.490288794,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.540761409,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.591832498,
+      "LANDING",
+      "AUTO.LAND feedback confirmed",
+      ""
+    ],
+    [
+      4029.642423867,
+      "DISABLED",
+      "landed and disarmed",
+      ""
+    ],
+    [
+      4029.692941124,
+      "INHIBITED",
+      "kill or flight termination latched",
+      ""
+    ],
+    [
+      4029.743489133,
+      "INHIBITED",
+      "kill or flight termination latched",
+      ""
+    ],
+    [
+      4029.794137879,
+      "INHIBITED",
+      "kill or flight termination latched",
+      ""
+    ],
+    [
+      4029.844724769,
+      "INHIBITED",
+      "kill or flight termination latched",
+      ""
+    ],
+    [
+      4029.895399627,
+      "INHIBITED",
+      "kill or flight termination latched",
+      ""
+    ],
+    [
+      4029.946353146,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4029.996764001,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ],
+    [
+      4030.047445712,
+      "DISABLED",
+      "operator engage required",
+      ""
+    ]
+  ],
+  "setpoint_count": 262,
+  "children_stopped": true,
+  "scope": "isolated fake FCU only; no real arming/mode/setpoint actions"
+}

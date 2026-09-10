@@ -1,0 +1,72 @@
+common:
+  lid_topic: /livox/lidar
+  imu_topic: /livox/imu
+  time_sync_en: false
+  time_offset_lidar_to_imu: 0.0
+
+frames:
+  map: map
+  body: livox_frame
+
+height:
+  subtract_ground_height: false
+
+preprocess:
+  lidar_type: 4
+  scan_line: 4
+  scan_rate: 10
+  timestamp_unit: 2
+  blind: 0.4
+
+mapping:
+  acc_cov: 0.1
+  gyr_cov: 0.1
+  b_acc_cov: 0.001
+  b_gyr_cov: 0.001
+  fov_degree: 360
+  det_range: 50.0
+  extrinsic_est_en: false
+  extrinsic_T: [-0.011, -0.02329, 0.04412]
+  extrinsic_R: [1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0]
+
+publish:
+  path_en: true
+  scan_publish_en: true
+  dense_publish_en: true
+  scan_bodyframe_pub_en: true
+
+pcd_save:
+  pcd_save_en: false
+
+NDT:
+  res: 1.0
+  step_size: 0.1
+  trans_eps: 0.001
+  max_iter: 20
+
+frame_filter: no_filter
+box_filter_size: [-30.0, 30.0, -30.0, 30.0, -30.0, 30.0]
+local_map_filter: voxel_filter
+global_map_filter: voxel_filter
+voxel_filter:
+  global_map: [0.2, 0.2, 0.2]
+  local_map: [0.2, 0.2, 0.2]
+  frame: [0.2, 0.2, 0.2]
+
+init_threshold: 0.1
+ininit_resolution_rot: 1.0
+ininit_resolution_dis: 0.2
+
+relocal_publish:
+  relocal_odom_en: true
+  relocal_scan_en: true
+  localmap_en: true
+
+point_filter_num: 2
+max_iteration: 3
+filter_size_surf: 0.5
+filter_size_map: 0.5
+cube_side_length: 1000.0
+runtime_pos_log_enable: false

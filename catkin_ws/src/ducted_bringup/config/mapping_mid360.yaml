@@ -1,0 +1,82 @@
+common:
+  lid_topic: /livox/lidar
+  imu_topic: /livox/imu
+  time_sync_en: false
+
+frames:
+  map: map
+  # FAST-LIO estimates the MID360 IMU body. Do not relabel it as aircraft
+  # base_link before the new vehicle's measured rigid transform is available.
+  body: livox_frame
+
+height:
+  # Mapping and localization keep Z in the fixed map frame. Ground-relative
+  # height is produced by a separate module in Step 5.
+  subtract_ground_height: false
+
+preprocess:
+  lidar_type: 5
+  scan_line: 4
+  scan_rate: 10
+  blind: 0.3
+
+mapping:
+  acc_cov: 0.1
+  gyr_cov: 0.1
+  b_acc_cov: 0.001
+  b_gyr_cov: 0.001
+  fov_degree: 360
+  det_range: 50.0
+  extrinsic_est_en: false
+  # MID360 LiDAR-to-built-in-IMU calibration reused from the independent local
+  # FAST_LIO workspace. This is not the aircraft base_link installation pose.
+  extrinsic_T: [-0.011, -0.02329, 0.04412]
+  extrinsic_R: [1.0, 0.0, 0.0,
+                0.0, 1.0, 0.0,
+                0.0, 0.0, 1.0]
+
+publish:
+  path_en: true
+  scan_publish_en: true
+  dense_publish_en: true
+  scan_bodyframe_pub_en: true
+
+pcd_save:
+  pcd_save_en: false
+  interval: -1
+
+export:
+  save_on_shutdown: false
+  directory: /home/nrc/catkin_ws/maps
+
+point_filter_num: 2
+max_iteration: 3
+filter_size_surf: 0.5
+filter_size_map: 0.5
+cube_side_length: 1000.0
+runtime_pos_log_enable: false
+odometrySurfLeafSize: 0.2
+mappingCornerLeafSize: 0.1
+mappingSurfLeafSize: 0.2
+z_tollerance: 1000.0
+rotation_tollerance: 1000.0
+numberOfCores: 4
+mappingProcessInterval: 0.15
+surroundingkeyframeAddingDistThreshold: 1.0
+surroundingkeyframeAddingAngleThreshold: 0.2
+surroundingKeyframeDensity: 2.0
+surroundingKeyframeSearchRadius: 50.0
+loopClosureEnableFlag: false
+loopClosureFrequency: 4.0
+surroundingKeyframeSize: 50
+historyKeyframeSearchRadius: 1.5
+historyKeyframeSearchTimeDiff: 30.0
+historyKeyframeSearchNum: 20
+historyKeyframeFitnessScore: 0.3
+globalMapVisualizationSearchRadius: 1000.0
+globalMapVisualizationPoseDensity: 0.4
+globalMapVisualizationLeafSize: 0.2
+visulize_IkdtreeMap: true
+recontructKdTree: true
+savePCD: false
+savePCDDirectory: /home/nrc/catkin_ws/maps

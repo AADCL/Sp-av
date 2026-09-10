@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "combinations": 384,
+  "invalid_choice_rejected": true,
+  "scope": "launch resolution only; dependency freshness is checked at runtime"
+}

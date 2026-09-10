@@ -1,0 +1,27 @@
+<launch>
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="base_ready_timeout" default="15.0" />
+
+  <rosparam command="load" file="$(find ducted_bringup)/config/mapping_mid360.yaml" />
+
+  <node pkg="fast_lio_sam"
+        type="fastlio_sam_mapping"
+        name="mapping"
+        output="screen"
+        required="true">
+    <param name="require_base_ready" value="true" />
+    <param name="base_ready_topic" value="$(arg base_ready_topic)" />
+    <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />
+    <remap from="/livox/lidar" to="/livox/lidar" />
+    <remap from="/livox/imu" to="/livox/imu" />
+    <remap from="Odometry" to="/ducted/localization/odom" />
+    <remap from="path" to="/ducted/localization/path" />
+    <remap from="cloud_registered" to="/ducted/mapping/cloud_registered" />
+    <remap from="cloud_registered_body" to="/ducted/mapping/cloud_body" />
+    <remap from="fast_lio_sam/mapping/map_global_optimized" to="/ducted/mapping/map_global" />
+    <remap from="save_map" to="/ducted/mapping/save_map" />
+    <remap from="save_pose" to="/ducted/mapping/save_pose" />
+    <remap from="pub_map" to="/ducted/mapping/publish_map" />
+  </node>
+
+</launch>

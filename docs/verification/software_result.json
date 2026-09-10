@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "integration": true,
+  "stages": [
+    {
+      "stage": "build",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "unit",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "results",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "launch_matrix",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "terrain_isolated",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "flight_isolated",
+      "exit_code": 0,
+      "timeout": false
+    },
+    {
+      "stage": "navigation_mission_isolated",
+      "exit_code": 0,
+      "timeout": false
+    }
+  ],
+  "scope": "software tests; physical calibration and flight acceptance excluded"
+}

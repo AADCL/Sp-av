@@ -1,0 +1,82 @@
+{
+  "passed": true,
+  "scope": "synthetic ROS integration only; no physical geometry acceptance",
+  "checks": [
+    {
+      "name": "default_geometry_gate",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "flat_tilted_map",
+      "passed": true,
+      "detail": "header: \n  seq: 41\n  stamp: \n    secs: 1789031382\n    nsecs: 175247669\n  frame_id: \"odom\"\nground_z: 0.39999999354928734\nagl: 1.1000000064507127\nvariance: 4.774572114864872e-17\nvalid: True"
+    },
+    {
+      "name": "slope",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "lower_step_side",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "upper_step_side",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "ambiguous_step_with_obstacles",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "recovery_after_step",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cloud_dropout",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "cloud_recovery",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "odom_dropout",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "wrong_frame",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "source_skew",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "base_dropout",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "base_recovery",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "name": "no_flight_commands",
+      "passed": true,
+      "detail": null
+    }
+  ],
+  "children_stopped": true
+}

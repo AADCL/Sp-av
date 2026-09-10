@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ducted_control</name>
+  <version>0.1.0</version>
+  <description>Flight control and validated RC inputs for the ducted quadrotor.</description>
+  <maintainer email="Ayalet030703@users.noreply.github.com">nrc</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>mavros_msgs</depend>
+  <depend>ducted_msgs</depend>
+  <test_depend>python3-nose</test_depend>
+  <test_depend>python3-yaml</test_depend>
+</package>

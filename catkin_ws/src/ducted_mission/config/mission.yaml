@@ -1,0 +1,30 @@
+# Loading this file does not activate the mission. Activation also requires
+# enable_commands:=true and an explicit call to /ducted/mission/start.
+mission_id: commissioning_route
+allowed_frames: [map, odom]
+workspace:
+  x: [-5.0, 5.0]
+  y: [-5.0, 5.0]
+  z: [0.2, 3.0]
+defaults:
+  xy_tolerance: 0.20
+  z_tolerance: 0.15
+  yaw_tolerance: 0.15
+  speed_tolerance: 0.10
+  dwell: 1.0
+  timeout: 30.0
+mission_timeout: 120.0
+blocked_timeout: 5.0
+input_timeouts:
+  base: 1.5
+  telemetry: 0.5
+waypoints:
+  - frame_id: map
+    position: [0.0, 0.0, 1.0]
+    yaw: 0.0
+  - frame_id: map
+    position: [1.0, 0.0, 1.0]
+    yaw: 0.0
+  - frame_id: map
+    position: [1.0, 1.0, 1.0]
+    yaw: 1.5707963267948966

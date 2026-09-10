@@ -1,0 +1,102 @@
+{
+  "terrain_height.launch": {
+    "vertices": {
+      "/terrain_height/body_vertices": [
+        [
+          -0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          0.35,
+          0.1
+        ]
+      ]
+    },
+    "gates": {
+      "/terrain_height/reference_confirmed": false
+    }
+  },
+  "local_avoidance.launch": {
+    "vertices": {
+      "/ducted_navigation/body_vertices": [
+        [
+          -0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          -0.3,
+          0.35,
+          0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          -0.35,
+          0.1
+        ],
+        [
+          0.3,
+          0.35,
+          -0.1
+        ],
+        [
+          0.3,
+          0.35,
+          0.1
+        ]
+      ]
+    },
+    "gates": {
+      "/ducted_navigation/enable_output": false,
+      "/ducted_navigation/geometry_confirmed": false
+    }
+  },
+  "passed": true
+}

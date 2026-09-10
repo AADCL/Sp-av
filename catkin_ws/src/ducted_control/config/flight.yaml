@@ -1,0 +1,41 @@
+flight:
+  # This gate must be overridden explicitly for isolated backend or later flight tests.
+  enable_flight_output: false
+  frame_id: odom
+  loop_hz: 20.0
+  telemetry_timeout: 0.5
+  # Base health is published at 2 Hz; external odometry has a tighter heartbeat.
+  base_ready_timeout: 1.5
+  external_ready_timeout: 0.5
+  external_pose_timeout: 0.5
+  pose_pair_timeout: 0.3
+  pose_history_duration: 1.0
+  # Provisional paired-pose consistency gate; inspect and tune in SITL/physical acceptance.
+  max_external_pose_skew: 0.05
+  max_external_position_error: 0.25
+  max_external_yaw_error: 0.2
+  target_timeout: 0.4
+  future_tolerance: 0.05
+  prestream_duration: 1.0
+  prestream_max_gap: 0.2
+  activation_timeout: 5.0
+  mode_request_timeout: 0.5
+  mode_feedback_timeout: 1.0
+  planner_hold_grace: 2.0
+  takeoff_timeout: 20.0
+  takeoff_tolerance: 0.08
+  takeoff_settle_time: 1.0
+  land_timeout: 60.0
+  min_takeoff_rise: 0.2
+
+  # Provisional absolute odom envelope; dynamic tuning and airframe acceptance remain open.
+  min_x: -5.0
+  max_x: 5.0
+  min_y: -5.0
+  max_y: 5.0
+  min_z: -1.0
+  max_z: 3.0
+  max_xy_speed: 0.6
+  max_z_speed: 0.4
+  max_yaw_rate: 0.5
+  max_lead: 0.3

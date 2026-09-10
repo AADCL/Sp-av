@@ -1,0 +1,26 @@
+# Generated ROS/catkin outputs
+**/build/
+**/devel/
+**/install/
+**/logs/
+**/.catkin_tools/
+catkin_ws/src/CMakeLists.txt
+
+# Local caches and temporary captures
+**/__pycache__/
+*.py[cod]
+*.bag
+*.bag.active
+*.log
+*.tar
+*.tar.gz
+*.zip
+.DS_Store
+Thumbs.db
+
+# Local credentials and editor state
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/

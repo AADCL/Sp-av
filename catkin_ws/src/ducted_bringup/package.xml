@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ducted_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and configuration entry points for the ducted quadrotor.</description>
+
+  <maintainer email="Ayalet030703@users.noreply.github.com">nrc</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>ducted_msgs</depend>
+  <exec_depend>ducted_control</exec_depend>
+  <exec_depend>ducted_navigation</exec_depend>
+  <exec_depend>ducted_mission</exec_depend>
+  <exec_depend>livox_ros_driver2</exec_depend>
+  <depend>mavros_msgs</depend>
+  <depend>nav_msgs</depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>mavros</exec_depend>
+  <exec_depend>roslaunch</exec_depend>
+  <exec_depend>rosgraph</exec_depend>
+  <exec_depend>rosbag</exec_depend>
+  <exec_depend>roslib</exec_depend>
+  <depend>rospy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <test_depend>python3-yaml</test_depend>
+  <test_depend>roslaunch</test_depend>
+</package>

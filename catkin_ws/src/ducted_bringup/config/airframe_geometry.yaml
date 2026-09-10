@@ -1,0 +1,27 @@
+# User-provided physical dimensions, 2026-09-10.
+# The center is base_link; +X faces forward, +Y left, +Z up.
+# Shared by terrain and navigation. Operational output gates stay explicit.
+airframe_geometry:
+  aircraft: ducted_quadrotor
+  frame: base_link
+  axes: FLU
+  forward_definition: lidar_facing_direction
+  measurement_source: user_confirmed_2026_09_10
+  dimensions_m:
+    front_to_back: 0.60
+    left_to_right: 0.70
+    top_to_bottom: 0.20
+  base_link_at_horizontal_center: true
+  base_link_height_above_bottom_m: 0.10
+  complete: true
+
+geometry_measurement_source: user_confirmed_2026_09_10_60x70x20cm_center_origin
+body_vertices:
+  - [-0.30, -0.35, -0.10]
+  - [-0.30, -0.35,  0.10]
+  - [-0.30,  0.35, -0.10]
+  - [-0.30,  0.35,  0.10]
+  - [ 0.30, -0.35, -0.10]
+  - [ 0.30, -0.35,  0.10]
+  - [ 0.30,  0.35, -0.10]
+  - [ 0.30,  0.35,  0.10]

@@ -1,0 +1,39 @@
+<launch>
+  <arg name="enable_flight_output" default="false" />
+  <arg name="start_rc_monitor" default="true" />
+  <arg name="mapping_confirmed" default="false" />
+
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="external_ready_topic" default="/ducted/external_odometry/ready" />
+  <arg name="rc_state_topic" default="/ducted/rc/state" />
+  <arg name="fcu_state_topic" default="/mavros/state" />
+  <arg name="local_pose_topic" default="/mavros/local_position/pose" />
+  <arg name="external_pose_topic" default="/mavros/odometry/out" />
+  <arg name="extended_state_topic" default="/mavros/extended_state" />
+  <arg name="setpoint_topic" default="/mavros/setpoint_position/local" />
+  <arg name="set_mode_service" default="/mavros/set_mode" />
+
+  <include if="$(arg start_rc_monitor)" file="$(find ducted_bringup)/launch/rc_processing.launch">
+    <arg name="mapping_confirmed" value="$(arg mapping_confirmed)" />
+    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
+  </include>
+
+  <node pkg="ducted_control" type="flight_controller.py" name="flight_controller"
+        required="true" output="screen">
+    <rosparam command="load" file="$(find ducted_control)/config/flight.yaml" />
+    <param name="flight/enable_flight_output" value="$(arg enable_flight_output)" />
+    <remap from="fcu_state" to="$(arg fcu_state_topic)" />
+    <remap from="local_pose" to="$(arg local_pose_topic)" />
+    <remap from="external_pose" to="$(arg external_pose_topic)" />
+    <remap from="extended_state" to="$(arg extended_state_topic)" />
+    <remap from="setpoint" to="$(arg setpoint_topic)" />
+    <remap from="set_mode" to="$(arg set_mode_service)" />
+    <remap from="rc_state" to="$(arg rc_state_topic)" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="external_ready" to="$(arg external_ready_topic)" />
+    <remap from="target" to="/ducted/control/target" />
+    <remap from="command" to="/ducted/control/command" />
+    <remap from="status" to="/ducted/control/status" />
+    <remap from="ready" to="/ducted/control/ready" />
+  </node>
+</launch>

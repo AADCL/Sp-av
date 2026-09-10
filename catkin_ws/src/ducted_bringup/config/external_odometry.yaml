@@ -1,0 +1,33 @@
+frames:
+  map: map
+  sensor: livox_frame
+  base: base_link
+  output: odom
+
+# Align the fixed map axes once to the disarmed FCU's ENU attitude. No AGL
+# subtraction and no position-origin reset; map data is preserved upstream.
+align_with_fcu: true
+
+# Block transmission until the mount reference and upstream velocity fields
+# have been validated for the aircraft. The source twist has been repaired;
+# this is the same aircraft's factory mount configuration (user confirmed).
+# reused_unverified refers to independent metrology, not uncertain aircraft provenance.
+input_contract_confirmed: false
+
+extrinsic:
+  base_to_livox:
+    translation: [0.13, 0.0, 0.0]
+    rpy: [0.03, 0.4567, 0.0]
+    status: reused_unverified
+    source: /home/nrc/spirit-wing_v1.0 factory ducted-quadrotor MID360 launch files via base_link->lidar_link and identity lidar_link->livox_frame
+
+timeouts:
+  base_ready: 1.0
+  max_odom_age: 0.25
+  future_tolerance: 0.05
+
+# Provisional variances, not measured uncertainties. FAST-LIO's twist fields do not follow REP-147,
+# so the adapter converts their frames and does not forward the old covariance.
+covariance:
+  pose_diagonal: [0.0025, 0.0025, 0.0064, 0.0009, 0.0009, 0.0025]
+  twist_diagonal: [0.01, 0.01, 0.0225, 0.0025, 0.0025, 0.0064]

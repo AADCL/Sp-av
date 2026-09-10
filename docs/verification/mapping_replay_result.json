@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "errors": [],
+  "cloud_count": 377,
+  "odom_count": 377,
+  "cloud_points_median": 7186,
+  "cloud_points_max": 7459,
+  "cloud_source_age_median": 0.0175478458404541,
+  "cloud_source_age_max": 0.024137258529663086,
+  "children_stopped": true,
+  "scope": "raw recorded sensors through mapping; no physical AGL, geometry, obstacle or flight acceptance"
+}
