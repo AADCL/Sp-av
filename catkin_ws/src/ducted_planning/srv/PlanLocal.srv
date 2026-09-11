@@ -1,0 +1,18 @@
+# One immutable live-cloud snapshot. All positions are absolute odom coordinates.
+std_msgs/Header header
+geometry_msgs/Pose start
+geometry_msgs/Vector3 velocity
+geometry_msgs/Pose goal
+sensor_msgs/PointCloud2 obstacles
+float64 clearance
+float64 minimum_z
+float64 maximum_z
+float64 sensor_horizon
+---
+bool success
+string reason
+nav_msgs/Path local_path
+geometry_msgs/Point tracking_target
+float64 duration
+float64 speed_bound
+float64 acceleration_bound

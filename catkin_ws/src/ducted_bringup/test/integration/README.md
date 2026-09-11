@@ -1,36 +1,22 @@
-# 隔离 ROS 集成验证
+# 隔离 ROS 软件验证
 
-先在 `/home/nrc/catkin_ws` 编译并 `source devel/setup.bash`，再显式运行所需脚本：
+在 `/home/nrc/catkin_ws` 编译并 `source devel/setup.bash` 后，按需顺序运行：
 
 ```bash
 python3 src/ducted_bringup/test/integration/terrain_isolated.py
 python3 src/ducted_bringup/test/integration/flight_isolated.py
-python3 src/ducted_bringup/test/integration/navigation_mission_isolated.py
+python3 src/ducted_bringup/test/integration/ego_core_isolated.py
+python3 src/ducted_bringup/test/integration/ego_mission_isolated.py
+python3 src/ducted_bringup/test/integration/automatic_flight_isolated.py
 ```
 
-测试分别创建 `127.0.0.1:11322`、`:11323`、`:11324` 主站，使用合成地形和模拟飞控。
-端口被占用时拒绝运行。
-不要把这些测试改为真实主站。脚本停止其创建的子进程，并将结果保存在
-`logs/terrain_isolated/result.json`、`logs/flight_isolated/result.json` 和
-`logs/navigation_mission_isolated/result.json`。验收结果以当次 JSON 为准。
+分别使用独立本机主站11322、11323、11325、11326、11327，端口占用时拒绝启动。测试使用合成点云、模拟遥控器及模拟FCU，停止其创建的进程，JSON和控制台日志写入同名 `logs` 子目录。
 
-默认 catkin 单元测试不自动启动这些独立主站；脚本应单独顺序运行。避障—任务整链使用
-共享配置中用户确认的0.60×0.70×0.20m中心包络；地面、运动、遥控器和飞控反馈
-仍是合成数据，只用于软件测试，不代表现场地面真值或飞行验收。
-
-自动验证入口（须先 source devel/setup.bash）：
+EGO 核心验证无需 map TF 或占据地图，检查绕障、封堵、绝对高度、失效输入和局部范围。EGO/航点/飞控联调使用当前60×70×20 cm机体包络，覆盖到点、暂停恢复、障碍及数据中断。自动飞行联调从模拟地面状态开始，覆盖门控、起飞、航点、降落、取消及协调节点卡住后的授权失效。它们不是实际飞行记录。
 
 ```bash
 python3 src/ducted_bringup/test/integration/verify_software.py
 python3 src/ducted_bringup/test/integration/verify_software.py --integration
 ```
 
-第一条顺序编译、运行四个自主开发包的 catkin 测试并解析 384 种模块组合；
-第二条再顺序运行三项隔离联调。失败即停止，记录每阶段输出、退出码和结果 JSON。
-`launch_matrix.py` 只解析启动图，不会启动硬件或 ROS 节点；组合通过不表示运行时
-依赖就绪。建图组合仍不能代替重定位的有效性信号，外部里程计会保持闭锁。
-
-Global/local planning additions:
-- `planning_core_isolated.py`: master11325, observed-space global detour, Fast-Planner local spline, blocked/unknown/AGL/live obstacle rejection; no vehicle nodes.
-- `global_local_mission_isolated.py`: master11326, real planning/navigation/mission/controller nodes with a synthetic FCU and the configured airframe geometry.
-Both refuse occupied ports and clean up owned children.
+第一条编译、运行 catkin 单元测试并解析384种模块组合；第二条再运行上述隔离联调，失败即停止。默认 catkin 测试不自动启动这些主站。`tf_stages_hardware.py` 是另行调用的真实硬件只读验证，不属于自动飞行测试链。

@@ -1,4 +1,4 @@
-"""Validate Fast-Planner's certified local reference for a position controller.
+"""Validate EGO-Planner's certified local reference for a position controller.
 
 The controller consumes poses; this layer checks the actual straight command
 segment after slew limiting instead of claiming acceleration feed-forward.
@@ -73,10 +73,10 @@ class TrajectoryGuard(Planner):
             self._best_goal_distance=route_length
             self._last_progress_stamp=snapshot.stamp
         elif not terminal and snapshot.stamp-self._last_progress_stamp>self.config.progress_timeout:
-            return self.reject(snapshot,"global route progress timeout")
+            return self.reject(snapshot,"local goal progress timeout")
         self._blocked_since=None
         return self._finish(PlanResult(
             "GOAL_REACHED" if terminal else "AVOIDING",
-            "goal tolerance reached" if terminal else "following guarded Fast-Planner reference",
+            "goal tolerance reached" if terminal else "following guarded EGO-Planner reference",
             target,reference.yaw, self._segment_clearance(current,target,obstacles,inflation),
             1. if terminal else 0.,snapshot.terrain.agl+target.z-current.z,speed,True),snapshot)

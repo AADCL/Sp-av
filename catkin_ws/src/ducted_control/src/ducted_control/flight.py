@@ -63,6 +63,7 @@ class FlightConfig:
 
     def __init__(self, values):
         self.enable_flight_output = values.get('enable_flight_output', False) is True
+        self.require_automatic_lease = values.get('require_automatic_lease', False) is True
         self.frame_id = values.get('frame_id', 'odom')
         if self.frame_id != 'odom':
             raise ValueError('flight frame_id must be odom')
@@ -106,6 +107,7 @@ class FlightPolicy:
         self._rc = self._source_record()
         self._base = {'valid': False, 'wall': None}
         self._external = {'valid': False, 'wall': None}
+        self._automatic_lease = {'valid': False, 'wall': None}
         self._last_ros = 0.
         self._last_wall = 0.
         self._last_output = None
@@ -236,6 +238,9 @@ class FlightPolicy:
         self._base.update(valid=ready, wall=float(wall_now))
         return ready
 
+    def update_automatic_lease(self, ready, wall_now):
+        self._automatic_lease.update(valid=ready is True,wall=wall_now)
+
     def update_external_ready(self, ready, wall_now):
         if not self._finite(wall_now) or type(ready) is not bool:
             self._external.update(valid=False, wall=None)
@@ -278,8 +283,10 @@ class FlightPolicy:
                 and -self.config.future_tolerance <= ros_now - pair['external_stamp']
                     <= self.config.external_pose_timeout)
 
-    def _gate_reason(self, ros_now, wall_now, require_armed=True):
+    def _gate_reason(self, ros_now, wall_now, require_armed=True, require_automatic=True):
         valid = self._validity(ros_now, wall_now)
+        if require_automatic and self.config.require_automatic_lease and not self._ready_fresh(self._automatic_lease, wall_now, .5):
+            return 'automatic flight lease unavailable or stale'
         for key in ('fcu', 'pose', 'external_pose', 'landed', 'rc', 'base', 'external'):
             if not valid[key]:
                 return '%s unavailable or stale' % key.replace('_', ' ')
@@ -357,12 +364,29 @@ class FlightPolicy:
         if not self.config.enable_flight_output:
             return Result(False, 'flight output disabled')
         command = command.strip().lower() if isinstance(command, str) else ''
+        if command == 'abort':
+            if self.state in ('DISABLED', 'INHIBITED'):
+                return Result(True, 'automatic output already stopped')
+            if self.state == 'PRESTREAM':
+                self._clear_ownership('automatic sequence aborted before OFFBOARD')
+                return Result(True, self.reason)
+            if self.state == 'MODE_WAIT':
+                self._clear_ownership('automatic sequence aborted during mode transition', 'INHIBITED')
+                return Result(True, self.reason)
+            if self.state in ('LAND_MODE_WAIT', 'LANDING', 'RELEASING'):
+                # Do not countermand a landing or a release already owned by PX4.
+                return Result(True, 'PX4 landing/release retained; automatic sequence stopped')
+            gate = self._gate_reason(ros_now, wall_now)
+            if gate:
+                self._clear_ownership('automatic sequence aborted: ' + gate, 'INHIBITED')
+                return Result(True, self.reason)
+            return self.command('hold', None, ros_now, wall_now)
         if command == 'reset':
             if self.state != 'INHIBITED':
                 return Result(False, 'reset only applies to latched inhibit')
             if self._mode_in_flight_token is not None:
                 return Result(False, 'reset blocked by unresolved mode service call')
-            gate = self._gate_reason(ros_now, wall_now, require_armed=False)
+            gate = self._gate_reason(ros_now, wall_now, require_armed=False, require_automatic=False)
             if gate or self._fcu.get('armed', True) or self._rc.get('kill', True):
                 return Result(False, gate or 'reset requires disarmed FCU and kill clear')
             self._clear_ownership('operator engage required')

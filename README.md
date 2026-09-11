@@ -113,8 +113,8 @@ roslaunch ducted_bringup base_system.launch
 | 相对地面高度 | `roslaunch ducted_bringup terrain_height.launch` |
 | 遥控处理 | `roslaunch ducted_bringup rc_processing.launch` |
 | 飞控执行器 | `roslaunch ducted_bringup flight_control.launch` |
-| 全局＋局部规划 | `roslaunch ducted_bringup global_local_planning.launch occupancy_file:=/home/nrc/catkin_ws/maps/site_b/observed_occupancy.pcd` |
-| 独立扇区避障（兼容入口） | `roslaunch ducted_bringup local_avoidance.launch` |
+| EGO 局部规划 | `roslaunch ducted_bringup ego_planner.launch` |
+| 自动飞行组合 | `roslaunch ducted_bringup automatic_flight.launch` |
 | 航点任务 | `roslaunch ducted_bringup waypoint_mission.launch` |
 | 记录 | `roslaunch ducted_bringup recording.launch` |
 
@@ -131,9 +131,9 @@ roslaunch ducted_bringup modules.launch \
 
 建图默认启用移植自 AG-TEST 的动态点过滤：距离裁剪、体素降采样、半径离群过滤、贝叶斯时间一致性确认和射线清除。每帧扫描留档，保存时按回环优化后的关键帧位姿重放；只清理静态地图，实时避障仍使用完整扫描。
 
-保存目录必须尚不存在，成功后同时得到静态 `GlobalMap.pcd`、`observed_occupancy.pcd` 和 `mapping_metadata.yaml`。后两者记录实际观测的三维空闲／占据空间；旧 PCD 不包含空闲观测，不能直接作为完整全局规划输入。默认扫描留档上限 2 GiB，达到上限会明确拒绝不完整地图导出。
+保存目录必须尚不存在，成功后同时得到静态 `GlobalMap.pcd`、`observed_occupancy.pcd` 和 `mapping_metadata.yaml`。后两者记录实际观测的三维空闲／占据空间，保留用于地图记录，不是 EGO 启动依赖。默认扫描留档上限 2 GiB，达到上限会明确拒绝不完整地图导出。
 
-全局规划在配置工作范围内对三维已观测空间执行 A*；局部规划复用 Fast-Planner 的运动学 A* 和 B 样条优化。未知空间和地图外部按阻挡处理。输出经机体包络、制动余量、相对地面高度、数据时效和实际位置指令扫掠检查后进入原飞控接口。B 样条作为位置参考，不直接向 PX4 发送速度或加速度前馈。
+局部规划采用官方 EGO-Planner 的 ESDF-free 回弹 B 样条优化，取消独立全局规划器。输入为实时完整点云及短时保留／预测障碍，不依赖占据地图文件。输出通过机体、制动、h_agl、时效和实际位置指令扫掠检查，交给 PX4 原生位置控制器；不发送速度或加速度前馈。默认速度0.5 m/s、垂直速度0.3 m/s、加速度0.5 m/s²。
 
 地图在建图节点运行时显式保存，推荐 `rosrun ducted_bringup save_map.py start --destination /home/nrc/catkin_ws/maps/新目录名` 后台提交，使用 `rosrun ducted_bringup save_map.py status` 查看进度；仅 `SUCCEEDED` 表示完成。保存期间保持机体静止和建图运行，结束进程不会自动保存。旧同步服务 `/ducted/mapping/save_map` 继续保留。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)；验证场景地图不能自动适用于其他现场。
 
@@ -166,13 +166,9 @@ python3 src/ducted_bringup/test/integration/verify_software.py --integration
 - 采用PX4原生位置控制、显式控制权状态机、RC标定和数据失效处理。
 - 增加航点开始/暂停/恢复/取消、实际到点停留确认、末点保持及日志验证入口。
 
-### 本次动态滤波与全局／局部规划验证
+### EGO 与自动飞行软件验证
 
-- 真实未解锁建图：222帧、约10 Hz；导出10,988个静态点和观测占据数据，TF连续，已有地图拒绝覆盖。
-- 规划核心隔离测试：9项通过，包含全局绕墙、局部B样条、绝对高度、完全封堵、未知区域和动态障碍。
-- 新规划后端与航点／飞控隔离整链：28项通过，包含两航点完成、暂停恢复和数据中断。
-- 原有VFH记录仍单独保留，不作为新后端的验证结果；没有进行真实自动飞行。
-
+使用独立 ROS master、合成点云和模拟飞控验证。结果记录见 [EGO 与自动飞行验证](docs/verification/2026-09-11-ego-automatic.md)。
 
 本版按运行阶段划分公共TF（2026-09-11更新）：
 
@@ -185,3 +181,31 @@ python3 src/ducted_bringup/test/integration/verify_software.py --integration
 `body`是MID360内部IMU参考，不是机体中心；`body → base_link`为原安装外参的逆变换，外参数值未改。保存PCD坐标沿用建图的`camera_init`数值，加载后将该固定地图坐标命名为`map`，建图时无需发布map TF。重定位RViz的Fixed Frame使用`map`；建图使用`odom`或`camera_init`。
 
 MAVROS的ENU/NED、FLU/FRD辅助变换移至`/mavros/internal_tf_static`，其内部里程计转换仍使用这些变换，公共TF树不再出现辅助根。旧`odom → map`链已移除。重定位阶段增加一个局部FAST-LIO进程，计算负载高于原单进程方案。
+
+## 自动飞行组合（EGO）
+
+入口 `automatic_flight.launch` 组合飞控执行器、EGO、航点任务和自动协调节点。基础层、建图或重定位、外部里程计、相对高度模块先按需启动。它与单独启动的飞控／导航／任务节点不能重复运行。
+
+默认全部输出关闭。自动流程不调用解锁服务：操作员解锁后，收到明确启动请求才按“预发送与 OFFBOARD 接管 → 垂直起飞 → 航点任务 → 末点悬停或配置降落”执行。起飞目标为启动时绝对 odom Z 加 `takeoff_rise`（默认1.1 m）；航点本身仍配置绝对 map/odom 高度，不能把 h_agl 填进绝对 Z。
+
+~~~bash
+# 启动组合仅加载节点，默认不产生飞行输出
+roslaunch ducted_bringup automatic_flight.launch \
+  mission_file:=/home/nrc/catkin_ws/src/ducted_mission/config/mission.yaml
+rostopic echo /ducted/automatic/status
+~~~
+
+实际执行需显式启用 `enable_commands:=true enable_flight_output:=true enable_navigation_output:=true geometry_confirmed:=true mapping_confirmed:=true`，并满足外部里程计、地形与遥控器自身门控；之后才可调用：
+
+~~~bash
+rosservice call /ducted/automatic/start "{}"
+rosservice call /ducted/automatic/cancel "{}"
+~~~
+
+`finish:=hold` 是默认值；`finish:=land` 仅在航点任务成功且末点保持确认后请求 PX4 `AUTO.LAND`，并等待落地且未解锁反馈。不会因启动、重启、数据恢复或前一次完成自行开始新任务。
+
+起飞前和爬升期间检查实时点云、机体竖直通道、倾角及数据新鲜度，按扫描时间匹配位姿历史并覆盖期间运动。RC 切回手动／保持、急停、数据中断、任务失败或取消会撤销自动序列；已进入 PX4 降落的取消不反向切回 OFFBOARD。普通取消捕获当前位置保持；数据或控制权失效时停止外部控制输出，由原飞控失效逻辑处理。
+
+状态话题 `/ducted/automatic/status` 为 JSON 字符串，含 `state`、`reason`、`generation`、`target_z`、`finish`。`/ducted/automatic/flight_lease` 与 `mission_lease` 提供0.5秒心跳约束，组合中任一授权中断都会被对应执行器检查。服务超时不重试飞行动作，`FAULT` 闭锁阻止再次自动启动。
+
+原 `waypoint_mission.launch` 仍适合已经接管并悬停后的单独航点操作。官方 EGO 来源和修改记录见 `catkin_ws/src/ducted_planning/vendor/ego/PROVENANCE.md`。

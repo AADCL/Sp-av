@@ -27,7 +27,7 @@ def main():
     ]
     if args.integration:
         stages += [(name, [sys.executable, str(here / (name + '.py'))], 240)
-                   for name in ('terrain_isolated', 'flight_isolated', 'navigation_mission_isolated')]
+                   for name in ('terrain_isolated', 'flight_isolated', 'ego_core_isolated', 'ego_mission_isolated', 'automatic_flight_isolated')]
     results = []
     for name, command, timeout in stages:
         with (directory / (name + '.log')).open('w') as stream:

@@ -41,6 +41,9 @@ class WaypointMissionNode:
     def __init__(self):
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
+        self.require_automatic_lease=rospy.get_param("~require_automatic_lease",False) is True
+        self.automatic_lease=(False,-math.inf)
+        rospy.Subscriber("/ducted/automatic/mission_lease",Bool,self._automatic_lease_callback,queue_size=1)
         self.odom_frame = str(rospy.get_param("~odom_frame", "odom"))
         mission_file = str(rospy.get_param("~mission_file"))
         with open(mission_file, "r") as stream:
@@ -119,6 +122,9 @@ class WaypointMissionNode:
             target=self._watchdog_loop, daemon=True)
         self.watchdog_thread.start()
         self._publish_status()
+
+    def _automatic_lease_callback(self,message):
+        with self.lock:self.automatic_lease=(bool(message.data),monotonic())
 
     @staticmethod
     def _stamp(message):
@@ -260,7 +266,8 @@ class WaypointMissionNode:
                       else ControllerObservation(False, "", ""))
         gates = GateSnapshot(
             now=wall,
-            base_ready=self.base_ready,
+            base_ready=(self.base_ready and (not getattr(self,'require_automatic_lease',False)
+                        or (self.automatic_lease[0] and 0<=wall-self.automatic_lease[1]<=.5))),
             base_age=base_age,
             rc_valid=bool(rc[0]),
             rc_command=rc[1] == "command",

@@ -1,0 +1,16 @@
+<launch>
+  <arg name="enable_output" default="false" />
+  <arg name="geometry_confirmed" default="false" />
+  <arg name="odom_topic" default="/mavros/odometry/out" />
+  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="config_file" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
+  <include file="$(find ducted_bringup)/launch/local_avoidance.launch">
+    <arg name="enable_output" value="$(arg enable_output)" />
+    <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
+    <arg name="odom_topic" value="$(arg odom_topic)" />
+    <arg name="cloud_topic" value="$(arg cloud_topic)" />
+    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
+    <arg name="config_file" value="$(arg config_file)" />
+  </include>
+</launch>

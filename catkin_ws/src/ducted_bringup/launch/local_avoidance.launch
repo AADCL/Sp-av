@@ -1,5 +1,5 @@
 <launch>
-  <arg name="planner_backend" default="vfh" />
+  <arg name="planner_backend" default="ego" />
   <arg name="enable_output" default="false" />
   <arg name="geometry_confirmed" default="false" />
   <arg name="odom_topic" default="/mavros/odometry/out" />
@@ -8,6 +8,10 @@
   <arg name="config_file" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
   <arg name="geometry_file" default="$(find ducted_bringup)/config/airframe_geometry.yaml" />
 
+  <arg name="planning_config" default="$(find ducted_planning)/config/ego.yaml" />
+  <node pkg="ducted_planning" type="ego_local_planner" name="ego" ns="ducted" output="screen" required="true">
+    <rosparam command="load" file="$(arg planning_config)" />
+  </node>
   <node pkg="ducted_navigation"
         type="ducted_navigation_node.py"
         name="ducted_navigation"

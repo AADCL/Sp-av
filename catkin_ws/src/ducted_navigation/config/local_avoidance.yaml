@@ -16,7 +16,7 @@ planner:
   waypoint_step: 0.3
   obstacle_clearance: 0.1
   min_passage_width: 0.7
-  sensor_horizon: 2.0
+  sensor_horizon: 4.0
   max_speed: 0.5
   max_acceleration: 0.5
   braking_acceleration: 0.8
@@ -28,7 +28,7 @@ planner:
   max_terrain_variance: 0.02
   goal_tolerance: 0.15
   progress_epsilon: 0.05
-  progress_timeout: 2.0
+  progress_timeout: 5.0
   blocked_hold: 0.3
   obstacle_persistence: 0.6
   prediction_horizon: 0.8

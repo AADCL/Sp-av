@@ -98,6 +98,40 @@ class Harness:
 
 
 class FlightPolicyTest(unittest.TestCase):
+    def test_automatic_lease_loss_revokes_output_without_reentry(self):
+        h=Harness(require_automatic_lease=True)
+        original=h.telemetry
+        def leased(**kwargs):
+            h.p.update_automatic_lease(True,h.wall)
+            original(**kwargs)
+        h.telemetry=leased
+        h.finish_engage()
+        h.telemetry=original
+        h.advance(.6);h.telemetry(fcu_mode='OFFBOARD')
+        self.assertEqual((),h.p.tick(h.ros,h.wall))
+        self.assertEqual('DISABLED',h.p.state)
+        h.p.update_automatic_lease(True,h.wall)
+        self.assertEqual((),h.p.tick(h.ros,h.wall))
+
+    def test_disarmed_reset_does_not_require_old_automatic_lease(self):
+        h=Harness(require_automatic_lease=True)
+        h.telemetry(armed=False);h.p.state='INHIBITED'
+        self.assertTrue(h.p.command('reset',None,h.ros,h.wall).accepted)
+
+    def test_abort_during_prestream_prevents_offboard_request(self):
+        h=Harness();h.telemetry();h.engage()
+        self.assertTrue(h.p.command('abort',None,h.ros,h.wall).accepted)
+        self.assertEqual('DISABLED',h.p.state)
+        self.assertEqual((),h.p.tick(h.ros,h.wall))
+
+    def test_abort_climb_holds_actual_pose(self):
+        h=Harness();h.finish_engage()
+        self.assertTrue(h.p.command('takeoff',Pose(0,0,1),h.ros,h.wall).accepted)
+        h.refresh(fcu_mode='OFFBOARD',pose=Pose(0,0,.3),landed=2)
+        self.assertTrue(h.p.command('abort',None,h.ros,h.wall).accepted)
+        self.assertEqual('HOLD',h.p.state)
+        self.assertEqual(h.pose,h.p.target)
+
     def test_explicit_hold_revokes_old_stream_and_pre_hold_messages(self):
         h = Harness(); h.finish_engage()
         target = Pose(.1, 0., 0., 0.)

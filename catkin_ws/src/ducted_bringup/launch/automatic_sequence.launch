@@ -1,0 +1,14 @@
+<launch>
+  <arg name="enable_commands" default="false" />
+  <arg name="finish" default="hold" />
+  <arg name="takeoff_rise" default="1.1" />
+  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <node pkg="ducted_mission" type="automatic_flight.py" name="automatic_flight" output="screen" required="true">
+    <rosparam command="load" file="$(find ducted_mission)/config/automatic.yaml" />
+    <rosparam command="load" file="$(find ducted_bringup)/config/airframe_geometry.yaml" />
+    <param name="enable_commands" value="$(arg enable_commands)" />
+    <param name="finish" value="$(arg finish)" />
+    <param name="takeoff_rise" value="$(arg takeoff_rise)" />
+    <param name="cloud_topic" value="$(arg cloud_topic)" />
+  </node>
+</launch>

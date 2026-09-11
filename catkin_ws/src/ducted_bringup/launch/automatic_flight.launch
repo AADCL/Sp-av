@@ -1,0 +1,37 @@
+<launch>
+  <!-- Base, localization, external odometry and terrain must already be ready. -->
+  <arg name="enable_commands" default="false" />
+  <arg name="enable_flight_output" default="false" />
+  <arg name="enable_navigation_output" default="false" />
+  <arg name="geometry_confirmed" default="false" />
+  <arg name="mapping_confirmed" default="false" />
+  <arg name="start_rc_monitor" default="true" />
+  <arg name="finish" default="hold" />
+  <arg name="takeoff_rise" default="1.1" />
+  <arg name="mission_file" default="$(find ducted_mission)/config/mission.yaml" />
+  <arg name="navigation_config" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
+  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <include file="$(find ducted_bringup)/launch/flight_control.launch">
+    <arg name="enable_flight_output" value="$(arg enable_flight_output)" />
+    <arg name="require_automatic_lease" value="true" />
+    <arg name="start_rc_monitor" value="$(arg start_rc_monitor)" />
+    <arg name="mapping_confirmed" value="$(arg mapping_confirmed)" />
+  </include>
+  <include file="$(find ducted_bringup)/launch/ego_planner.launch">
+    <arg name="enable_output" value="$(arg enable_navigation_output)" />
+    <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
+    <arg name="cloud_topic" value="$(arg cloud_topic)" />
+    <arg name="config_file" value="$(arg navigation_config)" />
+  </include>
+  <include file="$(find ducted_bringup)/launch/waypoint_mission.launch">
+    <arg name="mission_file" value="$(arg mission_file)" />
+    <arg name="enable_commands" value="$(arg enable_commands)" />
+    <arg name="require_automatic_lease" value="true" />
+  </include>
+  <include file="$(find ducted_bringup)/launch/automatic_sequence.launch">
+    <arg name="enable_commands" value="$(arg enable_commands)" />
+    <arg name="finish" value="$(arg finish)" />
+    <arg name="takeoff_rise" value="$(arg takeoff_rise)" />
+    <arg name="cloud_topic" value="$(arg cloud_topic)" />
+  </include>
+</launch>

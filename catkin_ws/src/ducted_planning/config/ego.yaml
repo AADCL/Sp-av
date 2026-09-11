@@ -1,0 +1,14 @@
+# EGO-Planner rebound optimization, single vehicle, rolling local cloud only.
+max_speed: 0.5
+max_acceleration: 0.5
+max_vertical_speed: 0.3
+planning_horizon: 2.8
+optimization:
+  lambda_smooth: 1.0
+  lambda_collision: 8.0
+  lambda_feasibility: 0.1
+  lambda_fitness: 1.0
+  dist0: 0.15
+  max_vel: 0.5
+  max_acc: 0.5
+  order: 3

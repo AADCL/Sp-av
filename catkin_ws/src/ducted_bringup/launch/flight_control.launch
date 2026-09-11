@@ -1,5 +1,6 @@
 <launch>
   <arg name="enable_flight_output" default="false" />
+  <arg name="require_automatic_lease" default="false" />
   <arg name="start_rc_monitor" default="true" />
   <arg name="mapping_confirmed" default="false" />
 
@@ -22,6 +23,7 @@
         required="true" output="screen">
     <rosparam command="load" file="$(find ducted_control)/config/flight.yaml" />
     <param name="flight/enable_flight_output" value="$(arg enable_flight_output)" />
+    <param name="flight/require_automatic_lease" value="$(arg require_automatic_lease)" />
     <remap from="fcu_state" to="$(arg fcu_state_topic)" />
     <remap from="local_pose" to="$(arg local_pose_topic)" />
     <remap from="external_pose" to="$(arg external_pose_topic)" />

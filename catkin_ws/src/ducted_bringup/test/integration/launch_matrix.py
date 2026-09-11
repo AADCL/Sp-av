@@ -16,10 +16,10 @@ def main():
     gates = ('input_contract_confirmed', 'reference_confirmed', 'mapping_confirmed',
              'geometry_confirmed', 'enable_flight_output', 'enable_output', 'enable_commands')
     checked = 0
-    for localization, backend in itertools.product(('none', 'mapping', 'relocalization'), ('vfh', 'fast_planner')):
+    for localization in ('none', 'mapping', 'relocalization'):
         for values in itertools.product((False, True), repeat=len(flags)):
             selected = dict(zip(flags, values))
-            args = ['localization:=' + localization, 'planning_backend:=' + backend]
+            args = ['localization:=' + localization]
             args += [name + ':=' + str(value).lower() for name, value in selected.items()]
             config = load_config_default([(launch, args)], None, verbose=False)
             names = [node.name for node in config.nodes]
@@ -29,7 +29,7 @@ def main():
             assert sum(node.type == 'rc_monitor.py' for node in config.nodes) == int(
                 selected['start_rc_processing'] or selected['start_flight']), args
             assert names.count('ducted_navigation') == int(selected['start_avoidance']), args
-            assert names.count('global_local') == int(selected['start_avoidance'] and backend == 'fast_planner'), args
+            assert names.count('ego') == int(selected['start_avoidance']), args
             assert names.count('mapping') == int(localization == 'mapping'), args
             assert names.count('relocalization') == int(localization == 'relocalization'), args
             assert names.count('localization_frames') == int(localization != 'none'), args

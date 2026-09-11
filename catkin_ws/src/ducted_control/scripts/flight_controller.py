@@ -48,6 +48,8 @@ class FlightController:
             'external_ready', Bool, self._external_callback, queue_size=1)
         self.target_sub = rospy.Subscriber(
             'target', FlightSetpoint, self._target_callback, queue_size=1)
+        self.automatic_sub = rospy.Subscriber(
+            '/ducted/automatic/flight_lease', Bool, self._automatic_callback, queue_size=1)
         self.command_srv = rospy.Service('command', FlightCommand, self._command_callback)
 
         if self.policy.config.enable_flight_output:
@@ -60,6 +62,10 @@ class FlightController:
             return float(message.header.stamp.to_sec())
         except (AttributeError, TypeError, ValueError):
             return math.nan
+
+    def _automatic_callback(self, message):
+        with self.lock:
+            self.policy.update_automatic_lease(bool(message.data), monotonic())
 
     @staticmethod
     def _pose_from_message(message):
