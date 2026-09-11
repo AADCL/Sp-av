@@ -21,10 +21,13 @@ Sp-av/
 │  │  ├─ ducted_msgs
 │  │  ├─ ducted_control
 │  │  ├─ ducted_navigation
+│  │  ├─ ducted_mapping
+│  │  ├─ ducted_planning
 │  │  ├─ ducted_mission
 │  │  ├─ fast_lio_sam
 │  │  └─ sfast_lio
 │  ├─ maps/
+│  ├─ save_map.sh
 │  └─ README.md
 └─ docs/
    ├─ 涵道四旋翼无人机_详细信息表_V1.0.md
