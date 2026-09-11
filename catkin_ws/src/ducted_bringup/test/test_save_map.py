@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts/save_map.py'
@@ -67,6 +68,57 @@ class SaveMapTest(unittest.TestCase):
         finally:
             release.set()
             worker.join(3)
+
+    def test_wait_reports_complete_map_destination(self):
+        def advance(_interval):
+            self.mod.write_status(self.root / 'status.json',
+                                  dict(state='SUCCEEDED', destination='/maps/site_a'))
+        self.mod.write_status(self.root / 'status.json', dict(state='SAVING'))
+        with patch.object(self.mod.time, 'sleep', advance), patch('builtins.print') as output:
+            self.assertEqual(self.mod.wait_for_save(self.root, interval=.01), 0)
+        self.assertIn(str(Path('/maps/site_a') / 'GlobalMap.pcd'),
+                      '\n'.join(call.args[0] for call in output.call_args_list))
+
+    def test_wait_rejected_save_has_nonzero_exit(self):
+        self.mod.write_status(self.root / 'status.json', dict(state='FAILED', message='rejected'))
+        with patch('builtins.print'):
+            self.assertEqual(self.mod.wait_for_save(self.root), 1)
+
+    def test_exited_worker_cannot_look_like_an_active_save(self):
+        self.mod.write_status(self.root / 'status.json', dict(state='SAVING'))
+        self.mod.write_status(self.root / 'process.json', dict(pid=2147483647, start_ticks='0'))
+        with patch('builtins.print'):
+            self.assertEqual(self.mod.wait_for_save(self.root), 2)
+
+    def test_interrupting_progress_does_not_change_background_job(self):
+        self.mod.write_status(self.root / 'status.json', dict(state='SAVING'))
+        with patch.object(self.mod.time, 'sleep', side_effect=KeyboardInterrupt), patch('builtins.print'):
+            self.assertEqual(self.mod.wait_for_save(self.root), 130)
+        self.assertEqual(self.status()['state'], 'SAVING')
+
+    def test_worker_finishing_during_status_read_is_not_unknown(self):
+        self.mod.write_status(self.root / 'status.json', dict(state='SAVING'))
+        self.mod.write_status(self.root / 'process.json', dict(pid=2147483647, start_ticks='42'))
+        read_text = Path.read_text
+        def finish(path, *args, **kwargs):
+            if path.name == 'stat':
+                self.mod.write_status(self.root / 'status.json',
+                                      dict(state='SUCCEEDED', destination='/maps/finished'))
+                raise FileNotFoundError()
+            return read_text(path, *args, **kwargs)
+        with patch.object(Path, 'read_text', finish):
+            self.assertEqual(self.mod.read_status(self.root)['state'], 'SUCCEEDED')
+
+    def test_zombie_worker_is_no_longer_saving(self):
+        self.mod.write_status(self.root / 'status.json', dict(state='SAVING'))
+        self.mod.write_status(self.root / 'process.json', dict(pid=2147483647, start_ticks='42'))
+        read_text = Path.read_text
+        def zombie(path, *args, **kwargs):
+            if path.name == 'stat':
+                return '2147483647 (python3) Z ' + '0 ' * 18 + '42'
+            return read_text(path, *args, **kwargs)
+        with patch.object(Path, 'read_text', zombie):
+            self.assertEqual(self.mod.read_status(self.root)['state'], 'UNKNOWN')
 
 
 if __name__ == '__main__':

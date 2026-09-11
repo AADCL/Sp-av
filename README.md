@@ -135,7 +135,7 @@ roslaunch ducted_bringup modules.launch \
 
 局部规划采用官方 EGO-Planner 的 ESDF-free 回弹 B 样条优化，取消独立全局规划器。输入为实时完整点云及短时保留／预测障碍，不依赖占据地图文件。输出通过机体、制动、h_agl、时效和实际位置指令扫掠检查，交给 PX4 原生位置控制器；不发送速度或加速度前馈。默认速度0.5 m/s、垂直速度0.3 m/s、加速度0.5 m/s²。
 
-地图在建图节点运行时显式保存，推荐 `rosrun ducted_bringup save_map.py start --destination /home/nrc/catkin_ws/maps/新目录名` 后台提交，使用 `rosrun ducted_bringup save_map.py status` 查看进度；仅 `SUCCEEDED` 表示完成。保存期间保持机体静止和建图运行，结束进程不会自动保存。旧同步服务 `/ducted/mapping/save_map` 继续保留。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)；验证场景地图不能自动适用于其他现场。
+地图在建图节点运行时显式保存。在 `/home/nrc/catkin_ws` 执行 `./save_map.sh`，自动加载环境、按时间命名并显示进度；也可执行 `./save_map.sh site_c` 指定新目录名。地图保存在 `maps/` 下，已有目录不会覆盖。Ctrl+C 只退出进度显示，后台保存继续；`./save_map.sh --status` 查询状态，`./save_map.sh --wait` 重新显示进度。仅 `SUCCEEDED` 或“保存完成”表示完成。保存期间保持机体静止、基础层和建图运行，结束建图进程不会自动保存。原 Python 客户端及同步服务 `/ducted/mapping/save_map` 继续保留。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)。
 
 ## 软件验证
 
