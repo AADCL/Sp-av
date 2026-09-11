@@ -41,7 +41,7 @@ class StartupCheckTest(unittest.TestCase):
         self.rosgraph = NS(Master=MagicMock())
         self.module = load_script(
             'startup_check',
-            {'rospy': self.ros, 'rosgraph': self.rosgraph, 'tf2_ros': self.tf2,
+            {'rospy': self.ros, 'rosgraph': self.rosgraph, 'tf2_ros': self.tf2, 'tf2_msgs.msg': NS(TFMessage=object),
              'mavros_msgs.msg': NS(RCIn=object, State=object),
              'nav_msgs.msg': NS(Odometry=object),
              'std_msgs.msg': NS(Bool=object),
@@ -57,6 +57,7 @@ class StartupCheckTest(unittest.TestCase):
     def _subscribe(self, topic, _kind, callback, **_kwargs):
         stamp = NS(to_sec=lambda: self.NOW)
         messages = {
+            '/mavros/internal_tf_static': NS(transforms=[]),
             '/mavros/state': NS(connected=True),
             '/mavros/rc/in': NS(header=NS(stamp=stamp), channels=[1500] * 12, rssi=255),
             '/livox/lidar': NS(),

@@ -1,6 +1,6 @@
 frames:
-  map: map
-  sensor: livox_frame
+  map: camera_init
+  sensor: body
   base: base_link
   output: odom
 

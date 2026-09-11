@@ -4,10 +4,10 @@ common:
   time_sync_en: false
 
 frames:
-  map: map
+  map: camera_init
   # FAST-LIO estimates the MID360 IMU body. Do not relabel it as aircraft
   # base_link before the new vehicle's measured rigid transform is available.
-  body: livox_frame
+  body: body
 
 height:
   # Mapping and localization keep Z in the fixed map frame. Ground-relative

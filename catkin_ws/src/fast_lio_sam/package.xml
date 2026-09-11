@@ -44,4 +44,5 @@
 
   <export>
   </export>
+  <build_depend>ducted_mapping</build_depend><run_depend>ducted_mapping</run_depend>
 </package>

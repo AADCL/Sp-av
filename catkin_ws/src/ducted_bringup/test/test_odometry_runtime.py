@@ -29,7 +29,7 @@ def vector():
 
 
 def odometry():
-    return NS(header=NS(stamp=Stamp(100.), frame_id='map'), child_frame_id='livox_frame',
+    return NS(header=NS(stamp=Stamp(100.), frame_id='camera_init'), child_frame_id='body',
               pose=NS(pose=NS(position=vector(), orientation=NS(x=0., y=0., z=0., w=1.))),
               twist=NS(twist=NS(linear=vector(), angular=vector())))
 
@@ -104,10 +104,10 @@ class RuntimeTest(unittest.TestCase):
         self.node._odometry_callback(msg)
         sent = self.node.publisher.publish.call_args[0][0]
         self.assertAlmostEqual(sent.pose.pose.position.x, 1.)
-        broadcaster = self.tf.TransformBroadcaster.return_value
+        broadcaster = self.tf.StaticTransformBroadcaster.return_value
         self.assertEqual(broadcaster.sendTransform.call_count, 1)
         tf = broadcaster.sendTransform.call_args[0][0]
-        self.assertEqual((tf.header.frame_id, tf.child_frame_id), ('livox_frame', 'base_link'))
+        self.assertEqual((tf.header.frame_id, tf.child_frame_id), ('body', 'base_link'))
         self.assertAlmostEqual(tf.transform.translation.x, -0.13)
 
     def test_wrong_frame_and_stale_samples_are_rejected(self):
@@ -126,7 +126,7 @@ class RuntimeTest(unittest.TestCase):
         node._base_ready_callback(NS(data=True))
         node._localization_ready_callback(NS(data=True))
         node._odometry_callback(odometry())
-        tf = self.tf.TransformBroadcaster.return_value.sendTransform.call_args[0][0]
+        tf = self.tf.StaticTransformBroadcaster.return_value.sendTransform.call_args[0][0]
         tr = tf.transform.translation
         qr = tf.transform.rotation
         rotated = rotate_vector(node.orientation, (tr.x, tr.y, tr.z))

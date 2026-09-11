@@ -104,6 +104,12 @@
 
 // save map
 #include "fast_lio_sam/save_map.h"
+#include <ducted_mapping/scan_archive.hpp>
+#include <boost/filesystem.hpp>
+#include <sys/syscall.h>
+#include <fcntl.h>
+#include <linux/fs.h>
+std::unique_ptr<ducted_mapping::ScanArchive> staticScanArchive;
 #include "fast_lio_sam/save_pose.h"
 
 // save data in kitti format 
@@ -1927,8 +1933,54 @@ bool pubMapService(fast_lio_sam::save_mapRequest& req, fast_lio_sam::save_mapRes
 /**
  * 保存全局关键帧特征点集合
 */
+bool saveFilteredMap(fast_lio_sam::save_mapRequest& req, fast_lio_sam::save_mapResponse& res) {
+    res.success = false;
+    std::string destination=req.destination.empty()?savePCDDirectory:req.destination;
+    if(destination.empty()) { ROS_ERROR("Map destination is empty"); return true; }
+    if(destination.front()!='/') destination=std::string(std::getenv("HOME"))+"/"+destination;
+    boost::filesystem::path target=boost::filesystem::absolute(destination).lexically_normal();
+    XmlRpc::XmlRpcValue progress;
+    progress["destination"]=target.string(); progress["phase"]="PREPARING";
+    progress["completed"]=0; progress["total"]=0;
+    ros::param::set("/ducted/mapping/save_progress",progress);
+    try {
+        if(boost::filesystem::exists(target)) throw std::runtime_error("destination already exists; choose a new map directory");
+        boost::filesystem::create_directories(target.parent_path());
+        std::string pattern=target.string()+".staging-XXXXXX";
+        std::vector<char> stage(pattern.begin(),pattern.end());stage.push_back(0);
+        if(!mkdtemp(stage.data())) throw std::runtime_error("cannot create map staging directory");
+        std::vector<Eigen::Matrix4d> optimized;
+        for(const auto& p:cloudKeyPoses6D->points)
+            optimized.push_back(pcl::getTransformation(p.x,p.y,p.z,p.roll,p.pitch,p.yaw).matrix().cast<double>());
+        ros::WallTime last_progress;
+        auto report=[&](size_t done,size_t total) {
+            const auto now=ros::WallTime::now();
+            if(done!=0 && done!=total && (now-last_progress).toSec()<1.0)return;
+            last_progress=now;
+            progress["phase"]=done==total?"WRITING":"FILTERING";
+            progress["completed"]=static_cast<int>(done); progress["total"]=static_cast<int>(total);
+            ros::param::set("/ducted/mapping/save_progress",progress);
+        };
+        auto result=staticScanArchive->replay(optimized,stage.data(),req.resolution,report);
+        if(!result.success) throw std::runtime_error("filtered export failed: "+result.error+"; retained staging "+stage.data());
+        if(pcl::io::savePCDFileBinary(std::string(stage.data())+"/trajectory.pcd",*cloudKeyPoses3D)!=0 ||
+           pcl::io::savePCDFileBinary(std::string(stage.data())+"/transformations.pcd",*cloudKeyPoses6D)!=0)
+            throw std::runtime_error("cannot save optimized keyframe poses");
+        if(syscall(SYS_renameat2,AT_FDCWD,stage.data(),AT_FDCWD,target.c_str(),RENAME_NOREPLACE)!=0)
+            throw std::runtime_error("cannot publish map bundle without overwriting destination");
+        res.success=true;
+        progress["phase"]="SUCCEEDED"; ros::param::set("/ducted/mapping/save_progress",progress);
+        ROS_INFO_STREAM("Saved AG-TEST filtered map: "<<target<<", scans="<<result.scans<<", static points="<<result.static_points);
+    } catch(const std::exception& e) {
+        progress["phase"]="FAILED"; progress["error"]=std::string(e.what());
+        ros::param::set("/ducted/mapping/save_progress",progress); ROS_ERROR_STREAM(e.what());
+    }
+    return true;
+}
+
 bool saveMapService(fast_lio_sam::save_mapRequest& req, fast_lio_sam::save_mapResponse& res)
 {
+    if(staticScanArchive) return saveFilteredMap(req,res);
       string saveMapDirectory;
     
       cout << "****************************************************" << endl;
@@ -2206,6 +2258,29 @@ int main(int argc, char **argv)
 
     ros::init(argc, argv, "laserMapping");
     ros::NodeHandle nh,private_nh("~");
+    bool static_filter_enabled=true;
+    private_nh.param("static_filter/enabled",static_filter_enabled,true);
+    if(static_filter_enabled) {
+        ducted_mapping::ArchiveConfig c;
+        private_nh.param("static_filter/spool_root",c.spool_root,c.spool_root);
+        private_nh.param("static_filter/radius_filter",c.radius_filter,c.radius_filter);
+        private_nh.param("static_filter/radius",c.radius,c.radius);
+        private_nh.param("static_filter/min_neighbors",c.min_neighbors,c.min_neighbors);
+        private_nh.param("static_filter/min_range",c.min_range,c.min_range);
+        private_nh.param("static_filter/max_range",c.max_range,c.max_range);
+        private_nh.param("static_filter/scan_voxel",c.scan_voxel,c.scan_voxel);
+        private_nh.param("static_filter/min_observation_span",c.filter.min_observation_span,c.filter.min_observation_span);
+        int hit_scans=8,archive_mib=2048,max_scans=36000;
+        private_nh.param("static_filter/min_hit_scans",hit_scans,hit_scans);
+        private_nh.param("static_filter/archive_limit_mib",archive_mib,archive_mib);
+        private_nh.param("static_filter/max_scans",max_scans,max_scans);
+        if(hit_scans<1 || archive_mib<1 || max_scans<1) { ROS_FATAL("Invalid static filter limits"); return 2; }
+        c.filter.min_hit_scans=hit_scans;c.max_bytes=size_t(archive_mib)*1024*1024;c.max_scans=max_scans;
+        try { staticScanArchive.reset(new ducted_mapping::ScanArchive(c)); }
+        catch(const std::exception& e) { ROS_FATAL_STREAM(e.what());return 2; }
+        ROS_INFO_STREAM("Mapping scan archive: "<<staticScanArchive->directory());
+    }
+
 
     bool require_base_ready = true;
     double base_ready_timeout = 15.0;
@@ -2236,8 +2311,8 @@ int main(int argc, char **argv)
     if(rosNamespace != ""){
         rosNamespace = rosNamespace + "/";
     }
-    nh.param<std::string>("frames/map", mapFrame, "map");
-    nh.param<std::string>("frames/body", bodyFrame, "livox_frame");
+    nh.param<std::string>("frames/map", mapFrame, "camera_init");
+    nh.param<std::string>("frames/body", bodyFrame, "body");
     nh.param<bool>("publish/path_en", path_en, true);
     nh.param<bool>("publish/scan_publish_en", scan_pub_en, true);
     nh.param<bool>("publish/dense_publish_en", dense_pub_en, true);
@@ -2557,6 +2632,19 @@ int main(int argc, char **argv)
             saveKeyFramesAndFactor();
             // 更新因子图中所有变量节点的位姿，也就是所有历史关键帧的位姿，更新里程计轨迹， 重构ikdtree
             correctPoses();
+            // Replay all scans using optimized anchors; apply the internal extrinsic once.
+            if(staticScanArchive && !cloudKeyPoses6D->empty()) {
+                const auto& anchor=cloudKeyPoses6D->back();
+                Eigen::Matrix4d world_anchor=pcl::getTransformation(anchor.x,anchor.y,anchor.z,anchor.roll,anchor.pitch,anchor.yaw).matrix().cast<double>();
+                Eigen::Matrix4d world_imu=Eigen::Matrix4d::Identity(),imu_lidar=Eigen::Matrix4d::Identity();
+                world_imu.block<3,3>(0,0)=state_point.rot.toRotationMatrix();
+                world_imu.block<3,1>(0,3)=state_point.pos;
+                imu_lidar.block<3,3>(0,0)=state_point.offset_R_L_I.toRotationMatrix();
+                imu_lidar.block<3,1>(0,3)=state_point.offset_T_L_I;
+                pcl::PointCloud<pcl::PointXYZI> scan;pcl::copyPointCloud(*feats_undistort,scan);
+                staticScanArchive->capture(scan,cloudKeyPoses6D->size()-1,world_anchor.inverse()*world_imu*imu_lidar,lidar_end_time);
+                if(!staticScanArchive->error().empty()) ROS_ERROR_STREAM_THROTTLE(5,"Static map export unavailable: "<<staticScanArchive->error());
+            }
             /******* Publish odometry *******/
             publish_odometry(pubOdomAftMapped);
             /*** add the feature points to map kdtree ***/

@@ -58,12 +58,14 @@ Sp-av/
 ```text
 FAST-LIO /Odometry
   → /ducted/localization/odom（launch重映射）
-  → fastlio_odometry_adapter.py
+  → fastlio_odometry_adapter.py（随建图/重定位启动，发布完整TF）
+  → /ducted/localization/body_odom
+  → external_odometry_relay.py（按需启动，默认禁止发送）
   → /mavros/odometry/out
   → MAVROS ENU/FLU → NED/FRD
   → PX4 MAVLink ODOMETRY
 
-TF：odom → map → livox_frame → base_link
+TF：odom → camera_init → body → base_link
 ```
 
 安装位姿采用本机自带涵道程序中的平移 `[0.13, 0, 0]` m、RPY `[0.03, 0.4567, 0]` rad。MID360内部雷达—IMU平移 `[-0.011, -0.02329, 0.04412]` 是另一层内部标定，不重复用于机体安装补偿。
@@ -111,11 +113,12 @@ roslaunch ducted_bringup base_system.launch
 | 相对地面高度 | `roslaunch ducted_bringup terrain_height.launch` |
 | 遥控处理 | `roslaunch ducted_bringup rc_processing.launch` |
 | 飞控执行器 | `roslaunch ducted_bringup flight_control.launch` |
-| 局部避障 | `roslaunch ducted_bringup local_avoidance.launch` |
+| 全局＋局部规划 | `roslaunch ducted_bringup global_local_planning.launch occupancy_file:=/home/nrc/catkin_ws/maps/site_b/observed_occupancy.pcd` |
+| 独立扇区避障（兼容入口） | `roslaunch ducted_bringup local_avoidance.launch` |
 | 航点任务 | `roslaunch ducted_bringup waypoint_mission.launch` |
 | 记录 | `roslaunch ducted_bringup recording.launch` |
 
-建图与重定位二选一。飞控入口自带RC监视。外部里程计、地形参考、RC映射及飞行/避障/任务输出保留显式确认参数，默认关闭；启动节点本身不会接管、解锁或执行任务。具体启用方式和接口见使用文档。
+建图与重定位二选一。两者均自动启动 `/localization_frames`；收到有效定位和未解锁飞控姿态后，形成 `odom → camera_init → body → base_link`。查看TF无需启动外部里程计发送模块。飞控入口自带RC监视。外部里程计、地形参考、RC映射及飞行/避障/任务输出保留显式确认参数，默认关闭；启动节点本身不会接管、解锁或执行任务。具体启用方式和接口见使用文档。
 
 组合示例，基础层仍需单独运行：
 
@@ -126,7 +129,13 @@ roslaunch ducted_bringup modules.launch \
   start_recording:=true
 ```
 
-地图在建图节点运行时显式调用 `/ducted/mapping/save_map` 保存，结束进程不会自动保存。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)；验证场景地图不能自动适用于其他现场。
+建图默认启用移植自 AG-TEST 的动态点过滤：距离裁剪、体素降采样、半径离群过滤、贝叶斯时间一致性确认和射线清除。每帧扫描留档，保存时按回环优化后的关键帧位姿重放；只清理静态地图，实时避障仍使用完整扫描。
+
+保存目录必须尚不存在，成功后同时得到静态 `GlobalMap.pcd`、`observed_occupancy.pcd` 和 `mapping_metadata.yaml`。后两者记录实际观测的三维空闲／占据空间；旧 PCD 不包含空闲观测，不能直接作为完整全局规划输入。默认扫描留档上限 2 GiB，达到上限会明确拒绝不完整地图导出。
+
+全局规划在配置工作范围内对三维已观测空间执行 A*；局部规划复用 Fast-Planner 的运动学 A* 和 B 样条优化。未知空间和地图外部按阻挡处理。输出经机体包络、制动余量、相对地面高度、数据时效和实际位置指令扫掠检查后进入原飞控接口。B 样条作为位置参考，不直接向 PX4 发送速度或加速度前馈。
+
+地图在建图节点运行时显式保存，推荐 `rosrun ducted_bringup save_map.py start --destination /home/nrc/catkin_ws/maps/新目录名` 后台提交，使用 `rosrun ducted_bringup save_map.py status` 查看进度；仅 `SUCCEEDED` 表示完成。保存期间保持机体静止和建图运行，结束进程不会自动保存。旧同步服务 `/ducted/mapping/save_map` 继续保留。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)；验证场景地图不能自动适用于其他现场。
 
 ## 软件验证
 
@@ -156,3 +165,23 @@ python3 src/ducted_bringup/test/integration/verify_software.py --integration
 - 引入中心AGL、三维机体包络和绝对位置目标，保持定位高度语义一致。
 - 采用PX4原生位置控制、显式控制权状态机、RC标定和数据失效处理。
 - 增加航点开始/暂停/恢复/取消、实际到点停留确认、末点保持及日志验证入口。
+
+### 本次动态滤波与全局／局部规划验证
+
+- 真实未解锁建图：222帧、约10 Hz；导出10,988个静态点和观测占据数据，TF连续，已有地图拒绝覆盖。
+- 规划核心隔离测试：9项通过，包含全局绕墙、局部B样条、绝对高度、完全封堵、未知区域和动态障碍。
+- 新规划后端与航点／飞控隔离整链：28项通过，包含两航点完成、暂停恢复和数据中断。
+- 原有VFH记录仍单独保留，不作为新后端的验证结果；没有进行真实自动飞行。
+
+
+本版按运行阶段划分公共TF（2026-09-11更新）：
+
+- 仅基础系统：无定位TF边，不出现`map`、`odom`、`camera_init`或`body`定位链；`base_link`为机体参考。
+- 建图：`odom → camera_init → body → base_link`，不存在`map`。
+- 重定位成功且源数据新鲜：`map → odom → camera_init → body → base_link`。
+
+`camera_init → body`由独立的局部FAST-LIO发布。重定位时额外运行局部scan-to-map里程计；原`sfast_lio`负责地图匹配，只发布`/ducted/relocalization/global_odom`（map/body）且不发布TF。`world_tf_owner.py`按相同扫描时间戳配对全局与局部机体位姿，计算`T_map_odom = T_map_base × inverse(T_odom_base)`；全局校正不会重置局部FAST-LIO。数据过期或重定位无效时停止发布全局校正，`/ducted/localization/map_ready=false`。TF缓存可能短暂保留旧变换，不应只看树中是否还显示map判断定位有效。
+
+`body`是MID360内部IMU参考，不是机体中心；`body → base_link`为原安装外参的逆变换，外参数值未改。保存PCD坐标沿用建图的`camera_init`数值，加载后将该固定地图坐标命名为`map`，建图时无需发布map TF。重定位RViz的Fixed Frame使用`map`；建图使用`odom`或`camera_init`。
+
+MAVROS的ENU/NED、FLU/FRD辅助变换移至`/mavros/internal_tf_static`，其内部里程计转换仍使用这些变换，公共TF树不再出现辅助根。旧`odom → map`链已移除。重定位阶段增加一个局部FAST-LIO进程，计算负载高于原单进程方案。

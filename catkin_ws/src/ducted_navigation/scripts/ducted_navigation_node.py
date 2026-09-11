@@ -79,7 +79,17 @@ class NavigationNode:
             max_terrain_variance=planner_config.max_terrain_variance)
         hull = self._load_hull() if self.geometry_confirmed else None
         self.runtime = NavigationRuntime(runtime_config)
-        self.planner = Planner(planner_config, hull)
+        backend=rospy.get_param("~planner_backend", "vfh")
+        if backend not in ("vfh", "fast_planner"):
+            raise rospy.ROSInitException("planner_backend must be vfh or fast_planner")
+        if backend == "fast_planner":
+            from ducted_navigation.trajectory_guard import TrajectoryGuard
+            from ducted_navigation.fast_planner_client import FastPlannerClient
+            self.planner=TrajectoryGuard(planner_config,hull)
+            self._fast_planner=FastPlannerClient(self)
+        else:
+            self.planner = Planner(planner_config, hull)
+            self._fast_planner=None
         self._planner_lock = threading.Lock()
         self._status_lock = threading.Lock()
         self._watchdog_stop = threading.Event()
@@ -283,7 +293,8 @@ class NavigationNode:
             _, plan_ros_now, plan_wall = self._now()
             if not self.runtime.revalidate(token, plan_ros_now, plan_wall):
                 return
-            result = self.planner.plan(snapshot)
+            result = (self._fast_planner.plan(snapshot) if getattr(self,"_fast_planner",None)
+                      else self.planner.plan(snapshot))
             self._last_planned_stamp = snapshot.stamp
         _, commit_ros_now, commit_wall = self._now()
         if not self.runtime.revalidate(token, commit_ros_now, commit_wall):

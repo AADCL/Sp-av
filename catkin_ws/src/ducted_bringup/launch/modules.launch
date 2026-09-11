@@ -7,6 +7,9 @@
   <arg name="start_terrain" default="false" />
   <arg name="start_rc_processing" default="false" />
   <arg name="start_flight" default="false" />
+  <arg name="planning_backend" default="fast_planner" />
+  <arg name="planning_backend_checked" value="$(eval {'vfh': 0, 'fast_planner': 1}[arg('planning_backend')])" />
+  <arg name="occupancy_file" default="" />
   <arg name="start_avoidance" default="false" />
   <arg name="start_mission" default="false" />
   <arg name="start_recording" default="false" />
@@ -36,9 +39,14 @@
     <arg name="mapping_confirmed" value="$(arg mapping_confirmed)" />
     <arg name="enable_flight_output" value="$(arg enable_flight_output)" />
   </include>
-  <include if="$(arg start_avoidance)" file="$(find ducted_bringup)/launch/local_avoidance.launch">
+  <include if="$(eval arg('start_avoidance') and arg('planning_backend') == 'vfh')" file="$(find ducted_bringup)/launch/local_avoidance.launch">
     <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
     <arg name="enable_output" value="$(arg enable_navigation_output)" />
+  </include>
+  <include if="$(eval arg('start_avoidance') and arg('planning_backend') == 'fast_planner')" file="$(find ducted_bringup)/launch/global_local_planning.launch">
+    <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
+    <arg name="enable_output" value="$(arg enable_navigation_output)" />
+    <arg name="occupancy_file" value="$(arg occupancy_file)" />
   </include>
   <include if="$(arg start_mission)" file="$(find ducted_bringup)/launch/waypoint_mission.launch">
     <arg name="mission_file" value="$(arg mission_file)" />

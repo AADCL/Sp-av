@@ -39,8 +39,8 @@ class RelocalizationContractTest(unittest.TestCase):
     def test_public_topics_are_stable(self):
         remaps = {r.attrib["from"]: r.attrib["to"] for r in self.root.findall(".//remap")}
         expected = {
-            "/Odometry": "/ducted/localization/odom",
-            "/path": "/ducted/localization/path",
+            "/Odometry": "/ducted/relocalization/global_odom",
+            "/path": "/ducted/relocalization/path",
             "/Odometry_relocal": "/ducted/relocalization/scan_matching_odom",
             "/gobal_map_relocal": "/ducted/relocalization/global_map",
             "/local_map_relocal": "/ducted/relocalization/local_map",
@@ -52,7 +52,7 @@ class RelocalizationContractTest(unittest.TestCase):
             self.assertEqual(remaps.get(source), target)
 
     def test_absolute_height_and_internal_extrinsic(self):
-        self.assertEqual(self.config["frames"], {"map": "map", "body": "livox_frame"})
+        self.assertEqual(self.config["frames"], {"map": "map", "body": "body"})
         self.assertFalse(self.config["height"]["subtract_ground_height"])
         self.assertEqual(
             self.config["mapping"]["extrinsic_T"],

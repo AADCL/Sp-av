@@ -1,4 +1,5 @@
 <launch>
+  <arg name="planner_backend" default="vfh" />
   <arg name="enable_output" default="false" />
   <arg name="geometry_confirmed" default="false" />
   <arg name="odom_topic" default="/mavros/odometry/out" />
@@ -14,6 +15,7 @@
         required="true">
     <rosparam command="load" file="$(arg geometry_file)" />
     <rosparam command="load" file="$(arg config_file)" />
+    <param name="planner_backend" value="$(arg planner_backend)" />
     <param name="enable_output" value="$(arg enable_output)" />
     <param name="geometry_confirmed" value="$(arg geometry_confirmed)" />
     <remap from="odom" to="$(arg odom_topic)" />

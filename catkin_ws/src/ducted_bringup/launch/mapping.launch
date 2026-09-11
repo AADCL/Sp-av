@@ -1,6 +1,12 @@
 <launch>
+  <arg name="dynamic_filter" default="true" />
   <arg name="base_ready_topic" default="/ducted/system/ready" />
   <arg name="base_ready_timeout" default="15.0" />
+
+  <include file="$(find ducted_bringup)/launch/localization_frames.launch">
+    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
+    <arg name="require_localization_ready" value="false" />
+  </include>
 
   <rosparam command="load" file="$(find ducted_bringup)/config/mapping_mid360.yaml" />
 
@@ -9,6 +15,8 @@
         name="mapping"
         output="screen"
         required="true">
+    <rosparam command="load" file="$(find ducted_mapping)/config/static_filter.yaml" />
+    <param name="static_filter/enabled" value="$(arg dynamic_filter)" />
     <param name="require_base_ready" value="true" />
     <param name="base_ready_topic" value="$(arg base_ready_topic)" />
     <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />

@@ -29,3 +29,8 @@ python3 src/ducted_bringup/test/integration/verify_software.py --integration
 第二条再顺序运行三项隔离联调。失败即停止，记录每阶段输出、退出码和结果 JSON。
 `launch_matrix.py` 只解析启动图，不会启动硬件或 ROS 节点；组合通过不表示运行时
 依赖就绪。建图组合仍不能代替重定位的有效性信号，外部里程计会保持闭锁。
+
+Global/local planning additions:
+- `planning_core_isolated.py`: master11325, observed-space global detour, Fast-Planner local spline, blocked/unknown/AGL/live obstacle rejection; no vehicle nodes.
+- `global_local_mission_isolated.py`: master11326, real planning/navigation/mission/controller nodes with a synthetic FCU and the configured airframe geometry.
+Both refuse occupied ports and clean up owned children.

@@ -14,6 +14,7 @@ import tf2_ros
 from mavros_msgs.msg import RCIn, State
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
+from tf2_msgs.msg import TFMessage
 from ducted_msgs.msg import TerrainHeight
 
 
@@ -84,6 +85,11 @@ def main():
                        for t, kind in types.items()]
         buffer = tf2_ros.Buffer()
         listener = tf2_ros.TransformListener(buffer)
+        internal_buffer = tf2_ros.Buffer()
+        def internal_tf(message):
+            for transform in message.transforms:
+                internal_buffer.set_transform_static(transform, 'mavros_internal')
+        internal_subscription = rospy.Subscriber('/mavros/internal_tf_static', TFMessage, internal_tf, queue_size=1)
         time.sleep(args.duration)
         with lock:
             snapshot = {topic: dict(entry) for topic, entry in samples.items()}
@@ -119,7 +125,7 @@ def main():
                'scope': 'transport only; physical role mapping and kill are separate flight gates'})
         for parent, child in [('odom', 'odom_ned'), ('base_link', 'base_link_frd')]:
             check('tf:' + parent + '->' + child,
-                  buffer.can_transform(parent, child, rospy.Time(0), rospy.Duration(0)), '')
+                  internal_buffer.can_transform(parent, child, rospy.Time(0), rospy.Duration(0)), 'MAVROS private conversion TF')
         code, detail, system_state = master_call(uri, 'getSystemState', rospy.get_name())
         if code != 1:
             raise RuntimeError('ROS master rejected getSystemState: '+detail)
@@ -135,7 +141,7 @@ def main():
                                    (p.x, p.y, p.z, q.x, q.y, q.z, q.w))
                                and abs(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w-1.) < .01)
             check('localization_source', msg is not None and source_recent(msg, .25)
-                  and msg.header.frame_id == 'map' and msg.child_frame_id == 'livox_frame'
+                  and msg.header.frame_id == 'camera_init' and msg.child_frame_id == 'body'
                   and finite_pose and len(odom_publishers) == 1, odom_publishers)
         if args.profile == 'terrain':
             msg = snapshot.get('/ducted/terrain/height', {}).get('message')

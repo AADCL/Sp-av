@@ -90,19 +90,31 @@ class AdapterMathTest(unittest.TestCase):
 class AdapterContractTest(unittest.TestCase):
     def test_launch_has_required_topics_and_readiness_gates(self):
         root = ET.parse(PKG / "launch" / "external_odometry.launch").getroot()
-        node = root.find(".//node[@type='fastlio_odometry_adapter.py']")
+        node = root.find(".//node[@type='external_odometry_relay.py']")
         self.assertIsNotNone(node)
         self.assertEqual(node.attrib.get("required"), "true")
         args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
         remaps = {r.attrib["from"]: r.attrib["to"] for r in node.findall("remap")}
         params = {p.attrib["name"]: p.attrib.get("value") for p in node.findall("param")}
-        self.assertEqual(args["input_odom"], "/ducted/localization/odom")
+        self.assertEqual(args["input_odom"], "/ducted/localization/body_odom")
         self.assertEqual(args["output_odom"], "/mavros/odometry/out")
         self.assertEqual(params["require_base_ready"], "true")
         self.assertEqual(params["require_localization_ready"], "true")
         self.assertEqual(remaps["input"], "$(arg input_odom)")
         self.assertEqual(remaps["output"], "$(arg output_odom)")
         self.assertIsNone(root.find(".//node[@type='static_transform_publisher']"))
+
+    def test_localization_launches_own_frames_without_external_output(self):
+        for name in ("mapping", "relocalization"):
+            root = ET.parse(PKG / "launch" / (name + ".launch")).getroot()
+            includes = [n.attrib['file'] for n in root.findall('include')]
+            self.assertIn('$(find ducted_bringup)/launch/localization_frames.launch', includes)
+        root = ET.parse(PKG / 'launch/localization_frames.launch').getroot()
+        node = root.find("node[@type='fastlio_odometry_adapter.py']")
+        self.assertIsNotNone(node)
+        remaps = {r.attrib['from']: r.attrib['to'] for r in node.findall('remap')}
+        self.assertEqual(remaps['output'], '/ducted/localization/body_odom')
+        self.assertEqual(remaps['ready'], '/ducted/localization/frames_ready')
 
     def test_reused_extrinsic_is_declared_with_provenance(self):
         config = yaml.safe_load((PKG / "config" / "external_odometry.yaml").read_text())

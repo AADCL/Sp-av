@@ -1,0 +1,17 @@
+<launch>
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <!-- Independent local scan-to-map LIO; global registration never resets it. -->
+  <group ns="ducted/local_lio">
+    <rosparam command="load" file="$(find ducted_bringup)/config/mapping_mid360.yaml" />
+    <param name="loopClosureEnableFlag" value="false" />
+    <node pkg="fast_lio_sam" type="fastlio_sam_mapping" name="fastlio" output="screen" required="true">
+      <param name="static_filter/enabled" value="false" />
+      <param name="require_base_ready" value="true" />
+      <param name="base_ready_topic" value="$(arg base_ready_topic)" />
+      <remap from="Odometry" to="/ducted/localization/odom" />
+      <remap from="path" to="/ducted/localization/path" />
+      <remap from="cloud_registered" to="/ducted/localization/cloud_registered" />
+      <remap from="cloud_registered_body" to="/ducted/localization/cloud_body" />
+    </node>
+  </group>
+</launch>

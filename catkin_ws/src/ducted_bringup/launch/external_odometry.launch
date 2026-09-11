@@ -1,16 +1,16 @@
 <launch>
-  <arg name="input_odom" default="/ducted/localization/odom" />
+  <arg name="input_odom" default="/ducted/localization/body_odom" />
   <arg name="output_odom" default="/mavros/odometry/out" />
   <arg name="base_ready_topic" default="/ducted/system/ready" />
-  <arg name="localization_ready_topic" default="/ducted/relocalization/ready" />
+  <arg name="localization_ready_topic" default="/ducted/localization/frames_ready" />
   <arg name="input_contract_confirmed" default="false" />
 
-  <!-- The adapter derives sensor->base TF from the same YAML as pose compensation.
-       FAST-LIO already owns map->sensor; do not reparent the sensor here. -->
+  <!-- Localization owns TF and conversion. This sender forwards body odometry
+       unchanged and publishes no TF. -->
 
   <node pkg="ducted_bringup"
-        type="fastlio_odometry_adapter.py"
-        name="fastlio_odometry_adapter"
+        type="external_odometry_relay.py"
+        name="external_odometry_relay"
         output="screen"
         required="true">
     <rosparam command="load" file="$(find ducted_bringup)/config/external_odometry.yaml" />
@@ -22,7 +22,5 @@
     <remap from="base_ready" to="$(arg base_ready_topic)" />
     <remap from="localization_ready" to="$(arg localization_ready_topic)" />
     <remap from="ready" to="/ducted/external_odometry/ready" />
-    <remap from="fcu_state" to="/mavros/state" />
-    <remap from="fcu_attitude" to="/mavros/imu/data" />
   </node>
 </launch>

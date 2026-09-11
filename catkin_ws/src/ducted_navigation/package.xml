@@ -19,4 +19,5 @@
   <depend>std_msgs</depend>
   <depend>tf2_ros</depend>
   <test_depend>python3-nose</test_depend>
+  <depend>ducted_planning</depend>
 </package>

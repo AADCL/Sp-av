@@ -6,7 +6,7 @@ common:
 
 frames:
   map: map
-  body: livox_frame
+  body: body
 
 height:
   subtract_ground_height: false

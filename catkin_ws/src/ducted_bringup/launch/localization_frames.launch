@@ -1,0 +1,22 @@
+<launch>
+  <arg name="base_ready_topic" default="/ducted/system/ready" />
+  <arg name="require_localization_ready" default="false" />
+  <arg name="localization_ready_topic" default="/ducted/relocalization/ready" />
+
+  <!-- Local conversion only. Sole owner of odom->camera_init and body->base_link.
+       This node never publishes to a MAVROS input topic. -->
+  <node pkg="ducted_bringup" type="fastlio_odometry_adapter.py"
+        name="localization_frames" output="screen" required="true">
+    <rosparam command="load" file="$(find ducted_bringup)/config/external_odometry.yaml" />
+    <param name="input_contract_confirmed" value="true" />
+    <param name="require_base_ready" value="true" />
+    <param name="require_localization_ready" value="$(arg require_localization_ready)" />
+    <remap from="input" to="/ducted/localization/odom" />
+    <remap from="output" to="/ducted/localization/body_odom" />
+    <remap from="ready" to="/ducted/localization/frames_ready" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="localization_ready" to="$(arg localization_ready_topic)" />
+    <remap from="fcu_state" to="/mavros/state" />
+    <remap from="fcu_attitude" to="/mavros/imu/data" />
+  </node>
+</launch>

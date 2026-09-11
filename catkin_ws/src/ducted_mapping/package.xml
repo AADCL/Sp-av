@@ -1,0 +1,5 @@
+<package format="2"><name>ducted_mapping</name><version>0.1.0</version>
+<description>Loop-corrected scan replay, AG-TEST static filtering and observed 3D occupancy.</description>
+<maintainer email="nrc@example.com">nrc</maintainer><license>Apache-2.0</license>
+<buildtool_depend>catkin</buildtool_depend><depend>eigen</depend><depend>libpcl-all-dev</depend>
+</package>

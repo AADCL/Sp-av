@@ -30,7 +30,7 @@ class FastlioOdometryAdapter:
         self.last_stamp_ns = 0
         self.base_received_wall = None
         self.input_contract_confirmed = rospy.get_param("~input_contract_confirmed", False) is True
-        self.map_frame = rospy.get_param("~frames/map", "map")
+        self.map_frame = rospy.get_param("~frames/map", "camera_init")
         self.align_with_fcu = rospy.get_param("~align_with_fcu", True) is True
         self.output_frame = rospy.get_param("~frames/output", "odom") if self.align_with_fcu else self.map_frame
         self.fcu_state = None
@@ -38,7 +38,7 @@ class FastlioOdometryAdapter:
         self.fcu_attitude = None
         self.fcu_attitude_wall = None
         self.q_output_map = None
-        self.sensor_frame = rospy.get_param("~frames/sensor", "livox_frame")
+        self.sensor_frame = rospy.get_param("~frames/sensor", "body")
         self.base_frame = rospy.get_param("~frames/base", "base_link")
         self.max_age = float(rospy.get_param("~timeouts/max_odom_age", 0.25))
         self.future_tolerance = float(rospy.get_param("~timeouts/future_tolerance", 0.05))
@@ -59,13 +59,15 @@ class FastlioOdometryAdapter:
         self.orientation = quaternion_from_rpy(*[float(value) for value in rpy])
         if not all(math.isfinite(v) for v in self.translation):
             raise rospy.ROSInitException("non-finite extrinsic translation")
-        # FAST-LIO owns map->sensor. Attach base below sensor using the inverse;
+        # FAST-LIO owns camera_init->body. Attach base with the inverse mount;
         # publishing base->sensor as well would give sensor two parents.
         self.inverse_orientation = quaternion_inverse(self.orientation)
         self.inverse_translation = rotate_vector(
             self.inverse_orientation, tuple(-v for v in self.translation)
         )
         self.broadcaster = tf2_ros.TransformBroadcaster()
+        self.mount_broadcaster = tf2_ros.StaticTransformBroadcaster()
+        self.mount_sent = False
 
         self.pose_diagonal = self._diagonal_param("~covariance/pose_diagonal")
         self.twist_diagonal = self._diagonal_param("~covariance/twist_diagonal")
@@ -256,9 +258,10 @@ class FastlioOdometryAdapter:
             alignment.child_frame_id = self.map_frame
             (alignment.transform.rotation.x, alignment.transform.rotation.y,
              alignment.transform.rotation.z, alignment.transform.rotation.w) = self.q_output_map
-            self.broadcaster.sendTransform([alignment, transform])
-        else:
-            self.broadcaster.sendTransform(transform)
+            self.broadcaster.sendTransform(alignment)
+        if not self.mount_sent:
+            self.mount_broadcaster.sendTransform(transform)
+            self.mount_sent = True
         self.publisher.publish(output)
         self.last_sample_wall = monotonic()
         self.last_sample_stamp = message.header.stamp

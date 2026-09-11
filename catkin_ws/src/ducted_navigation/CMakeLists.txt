@@ -3,6 +3,7 @@ project(ducted_navigation)
 
 find_package(catkin REQUIRED COMPONENTS
   ducted_msgs
+  ducted_planning
   geometry_msgs
   message_generation
   nav_msgs
@@ -32,6 +33,7 @@ install(DIRECTORY config
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_trajectory_guard.py)
   catkin_add_nosetests(test/test_planner_core.py)
   catkin_add_nosetests(test/test_runtime.py)
   catkin_add_nosetests(test/test_node_runtime.py)

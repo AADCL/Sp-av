@@ -1,0 +1,14 @@
+# AG-TEST filtering, applied to loop-corrected map export only.
+static_filter:
+  enabled: true
+  spool_root: /home/nrc/catkin_ws/logs
+  archive_limit_mib: 2048
+  max_scans: 36000
+  min_range: 0.50
+  max_range: 50.0
+  scan_voxel: 0.05
+  radius_filter: true
+  radius: 0.15
+  min_neighbors: 2
+  min_hit_scans: 8
+  min_observation_span: 2.0

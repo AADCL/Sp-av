@@ -45,8 +45,8 @@ class MappingLaunchContractTest(unittest.TestCase):
             self.assertEqual(remaps.get(source), target)
 
     def test_fixed_map_frame_keeps_absolute_z(self):
-        self.assertEqual(self.config["frames"]["map"], "map")
-        self.assertEqual(self.config["frames"]["body"], "livox_frame")
+        self.assertEqual(self.config["frames"]["map"], "camera_init")
+        self.assertEqual(self.config["frames"]["body"], "body")
         self.assertFalse(self.config["height"]["subtract_ground_height"])
 
     def test_mid360_internal_extrinsic_uses_local_reference(self):

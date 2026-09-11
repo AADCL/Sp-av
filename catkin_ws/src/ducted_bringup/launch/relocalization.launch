@@ -3,6 +3,21 @@
   <arg name="base_ready_topic" default="/ducted/system/ready" />
   <arg name="base_ready_timeout" default="15.0" />
 
+  <include file="$(find ducted_bringup)/launch/localization_frames.launch">
+    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
+  </include>
+  <include file="$(find ducted_bringup)/launch/local_odometry.launch">
+    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
+  </include>
+  <node pkg="ducted_bringup" type="world_tf_owner.py" name="world_tf_owner" output="screen" required="true">
+    <rosparam command="load" file="$(find ducted_bringup)/config/external_odometry.yaml" />
+    <remap from="local" to="/ducted/localization/body_odom" />
+    <remap from="global" to="/ducted/relocalization/global_odom" />
+    <remap from="localized" to="/ducted/relocalization/ready" />
+    <remap from="base_ready" to="$(arg base_ready_topic)" />
+    <remap from="ready" to="/ducted/localization/map_ready" />
+  </node>
+
   <rosparam command="load" file="$(find ducted_bringup)/config/relocalization_mid360.yaml" />
 
   <node pkg="sfast_lio"
@@ -11,6 +26,7 @@
         output="screen"
         required="true">
     <param name="globalmap_dir" value="$(arg map_file)" />
+    <param name="publish_tf" value="false" />
     <param name="require_base_ready" value="true" />
     <param name="base_ready_topic" value="$(arg base_ready_topic)" />
     <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />
@@ -18,8 +34,8 @@
     <remap from="/livox/lidar" to="/livox/lidar" />
     <remap from="/livox/imu" to="/livox/imu" />
     <remap from="/initialpose" to="/ducted/relocalization/initialpose" />
-    <remap from="/Odometry" to="/ducted/localization/odom" />
-    <remap from="/path" to="/ducted/localization/path" />
+    <remap from="/Odometry" to="/ducted/relocalization/global_odom" />
+    <remap from="/path" to="/ducted/relocalization/path" />
     <remap from="/Odometry_relocal" to="/ducted/relocalization/scan_matching_odom" />
     <remap from="/gobal_map_relocal" to="/ducted/relocalization/global_map" />
     <remap from="/local_map_relocal" to="/ducted/relocalization/local_map" />

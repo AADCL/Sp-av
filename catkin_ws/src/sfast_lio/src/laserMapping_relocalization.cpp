@@ -107,7 +107,8 @@ shared_ptr<Preprocess> p_pre(new Preprocess());
 //relocalization
 string globalmap_dir;
 string mapFrame = "map";
-string bodyFrame = "livox_frame";
+string bodyFrame = "body";
+bool publishTf = false;
 ros::Publisher relocalizationReadyPub;
 
 void publish_relocalization_ready(bool ready)
@@ -509,6 +510,7 @@ void publish_odometry(const ros::Publisher &pubOdomAftMapped)
     }
     pubOdomAftMapped.publish(odomAftMapped);
 
+    if (!publishTf) return; // Global corrections belong only to world_tf_owner.
     static tf::TransformBroadcaster br;
     tf::Transform transform;
     tf::Quaternion q;
@@ -738,7 +740,8 @@ int main(int argc, char **argv)
     }
 
     nh.param<std::string>("frames/map", mapFrame, "map");
-    nh.param<std::string>("frames/body", bodyFrame, "livox_frame");
+    nh.param<std::string>("frames/body", bodyFrame, "body");
+    ros::param::param<bool>("~publish_tf", publishTf, false);
 
     nh.param<bool>("publish/path_en", path_en, true);
     nh.param<bool>("publish/scan_publish_en", scan_pub_en, true);            // 是否发布当前正在扫描的点云的topic

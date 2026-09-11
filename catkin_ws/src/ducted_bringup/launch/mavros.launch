@@ -6,6 +6,10 @@
   <arg name="fcu_protocol" default="v2.0" />
   <arg name="respawn_mavros" default="true" />
 
+  <group>
+  <!-- MAVROS keeps ENU/NED and FLU/FRD helpers in its private TF channel.
+       They must not create map/odom roots in the public base-only tree. -->
+  <remap from="/tf_static" to="/mavros/internal_tf_static" />
   <include file="$(find mavros)/launch/node.launch">
     <arg name="pluginlists_yaml" value="$(find ducted_bringup)/config/mavros/px4_pluginlists.yaml" />
     <arg name="config_yaml" value="$(find ducted_bringup)/config/mavros/px4_config.yaml" />
@@ -16,4 +20,5 @@
     <arg name="fcu_protocol" value="$(arg fcu_protocol)" />
     <arg name="respawn_mavros" value="$(arg respawn_mavros)" />
   </include>
+  </group>
 </launch>
