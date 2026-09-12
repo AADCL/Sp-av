@@ -7,6 +7,10 @@ static_filter:
   min_range: 0.50
   max_range: 50.0
   scan_voxel: 0.05
+  map_voxel_size: 0.05
+  # EGO consumes live scans; observed-space export is optional.
+  export_observed_occupancy: false
+  replay_workers: 2
   radius_filter: true
   radius: 0.15
   min_neighbors: 2

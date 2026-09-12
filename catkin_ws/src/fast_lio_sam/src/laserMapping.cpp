@@ -1970,7 +1970,7 @@ bool saveFilteredMap(fast_lio_sam::save_mapRequest& req, fast_lio_sam::save_mapR
             throw std::runtime_error("cannot publish map bundle without overwriting destination");
         res.success=true;
         progress["phase"]="SUCCEEDED"; ros::param::set("/ducted/mapping/save_progress",progress);
-        ROS_INFO_STREAM("Saved AG-TEST filtered map: "<<target<<", scans="<<result.scans<<", static points="<<result.static_points);
+        ROS_INFO_STREAM("Saved AG-TEST filtered map: "<<target<<", scans="<<result.scans<<", static points="<<result.static_points<<", seconds="<<result.elapsed_seconds);
     } catch(const std::exception& e) {
         progress["phase"]="FAILED"; progress["error"]=std::string(e.what());
         ros::param::set("/ducted/mapping/save_progress",progress); ROS_ERROR_STREAM(e.what());
@@ -2269,6 +2269,9 @@ int main(int argc, char **argv)
         private_nh.param("static_filter/min_range",c.min_range,c.min_range);
         private_nh.param("static_filter/max_range",c.max_range,c.max_range);
         private_nh.param("static_filter/scan_voxel",c.scan_voxel,c.scan_voxel);
+        private_nh.param("static_filter/map_voxel_size",c.filter.map_voxel_size,c.filter.map_voxel_size);
+        private_nh.param("static_filter/export_observed_occupancy",c.export_observed_occupancy,c.export_observed_occupancy);
+        private_nh.param("static_filter/replay_workers",c.replay_workers,c.replay_workers);
         private_nh.param("static_filter/min_observation_span",c.filter.min_observation_span,c.filter.min_observation_span);
         int hit_scans=8,archive_mib=2048,max_scans=36000;
         private_nh.param("static_filter/min_hit_scans",hit_scans,hit_scans);

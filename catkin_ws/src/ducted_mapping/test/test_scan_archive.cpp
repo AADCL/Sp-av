@@ -2,6 +2,8 @@
 #include <pcl/io/pcd_io.h>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
+#include <iterator>
 using namespace ducted_mapping;
 int main() {
   ArchiveConfig c; c.radius_filter=false; c.filter.min_hit_scans=2; c.filter.min_observation_span=0;
@@ -35,5 +37,29 @@ int main() {
   pcl::io::loadPCDFile(std::string(coarser)+"/GlobalMap.pcd",saved);
   if(std::abs(saved[0].x-4.01)>.001)return 10; // transient must not contaminate coarse static voxel
   if(coarse.replay(poses,coarser,NAN).success)return 11;
+  if(access((std::string(path)+"/observed_occupancy.pcd").c_str(),F_OK)==0) {
+    std::cerr<<"default export should omit the unused observed grid"<<std::endl;return 13;
+  }
+  // Two stable details in one 10 cm cell must survive the default dense export.
+  ScanArchive dense(c);cloud.clear();p.x=1.02;cloud.push_back(p);p.x=1.08;cloud.push_back(p);
+  dense.capture(cloud,0,identity,1);dense.capture(cloud,0,identity,2);
+  char dense_path[]="/tmp/ducted-dense-test-XXXXXX";if(!mkdtemp(dense_path))return 14;
+  auto dense_result=dense.replay(poses,dense_path,0);
+  if(!dense_result.success || dense_result.static_points!=2) {
+    std::cerr<<"5 cm export lost stable surface detail"<<std::endl;return 15;
+  }
+  // Worker count and optional observed grid must not change the static cloud.
+  ArchiveConfig with_grid=c;with_grid.export_observed_occupancy=true;with_grid.replay_workers=1;
+  ScanArchive serial(with_grid);serial.capture(cloud,0,identity,1);serial.capture(cloud,0,identity,2);
+  char serial_path[]="/tmp/ducted-serial-test-XXXXXX";if(!mkdtemp(serial_path))return 16;
+  if(!serial.replay(poses,serial_path).success)return 17;
+  auto bytes=[](const std::string& file) {std::ifstream f(file,std::ios::binary);return std::string(std::istreambuf_iterator<char>(f),{});};
+  if(bytes(std::string(serial_path)+"/GlobalMap.pcd")!=bytes(std::string(dense_path)+"/GlobalMap.pcd"))return 18;
+  if(access((std::string(serial_path)+"/observed_occupancy.pcd").c_str(),F_OK)!=0)return 19;
+  if(bytes(std::string(dense_path)+"/mapping_metadata.yaml").find("occupancy_exported: false")==std::string::npos)return 20;
+  // Asynchronous preparation errors must still fail the whole export.
+  ScanArchive missing(c);missing.capture(cloud,0,identity,1);missing.capture(cloud,0,identity,2);
+  unlink((missing.directory()+"/1.pcd").c_str());
+  if(missing.replay(poses,serial_path).success)return 21;
   return 0;
 }

@@ -31,9 +31,44 @@ class SaveMapTest(unittest.TestCase):
             output.mkdir()
             for name in self.mod.BUNDLE:
                 (output / name).write_text('data')
+            (output / 'mapping_metadata.yaml').write_text('format_version: 1\n')
+            (output / 'observed_occupancy.pcd').write_text('data')
             return True
         self.assertEqual(self.run_save(save), 0)
         self.assertEqual(self.status()['state'], 'SUCCEEDED')
+
+    def test_static_only_bundle_is_complete_when_metadata_explicitly_omits_grid(self):
+        def save():
+            output = self.root / 'map'
+            output.mkdir()
+            for name in self.mod.BUNDLE:
+                if name != 'observed_occupancy.pcd':
+                    (output / name).write_text('data')
+            (output / 'mapping_metadata.yaml').write_text('format_version: 2\noccupancy_exported: false\n')
+            return True
+        self.assertEqual(self.run_save(save), 0)
+        self.assertEqual(self.status()['state'], 'SUCCEEDED')
+
+    def test_requested_occupancy_cannot_be_missing(self):
+        def save():
+            output = self.root / 'map'
+            output.mkdir()
+            for name in self.mod.BUNDLE:
+                if name != 'observed_occupancy.pcd':
+                    (output / name).write_text('data')
+            (output / 'mapping_metadata.yaml').write_text('format_version: 2\noccupancy_exported: true\n')
+            return True
+        self.assertEqual(self.run_save(save), 1)
+        self.assertIn('observed_occupancy.pcd', self.status()['message'])
+
+    def test_malformed_manifest_cannot_claim_success(self):
+        def save():
+            output = self.root / 'map'
+            output.mkdir()
+            for name in self.mod.BUNDLE:
+                (output / name).write_text('data')
+            return True
+        self.assertEqual(self.run_save(save), 1)
 
     def test_incomplete_bundle_is_failure(self):
         self.assertEqual(self.run_save(lambda: True), 1)

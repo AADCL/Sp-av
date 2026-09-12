@@ -11,10 +11,31 @@ import sys
 import tempfile
 import threading
 import time
+import yaml
 
 BUNDLE = ('GlobalMap.pcd', 'SurfMap.pcd', 'filterGlobalMap.pcd',
-          'observed_occupancy.pcd', 'mapping_metadata.yaml',
+          'mapping_metadata.yaml',
           'trajectory.pcd', 'transformations.pcd')
+
+
+def incomplete_bundle(destination):
+    required = list(BUNDLE)
+    try:
+        metadata = yaml.safe_load((destination / 'mapping_metadata.yaml').read_text())
+        if not isinstance(metadata, dict):
+            raise ValueError('metadata must be a mapping')
+        version = metadata.get('format_version')
+        if version == 1:
+            required.append('observed_occupancy.pcd')  # Legacy bundles always include it.
+        elif version == 2 and type(metadata.get('occupancy_exported')) is bool:
+            if metadata['occupancy_exported']:
+                required.append('observed_occupancy.pcd')
+        else:
+            raise ValueError('unsupported format or missing occupancy declaration')
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        return ['mapping_metadata.yaml: ' + str(exc)]
+    return [name for name in required if not (destination / name).is_file()
+            or (destination / name).stat().st_size == 0]
 
 
 def write_status(path, value):
@@ -56,8 +77,7 @@ def perform_save(destination, status_path, call, read_progress, interval=1.0):
         status.update(state='FAILED', message='Save service rejected or failed; see mapping terminal')
         result = 1
     else:
-        missing = [name for name in BUNDLE if not (destination / name).is_file()
-                   or (destination / name).stat().st_size == 0]
+        missing = incomplete_bundle(destination)
         status.update(state='FAILED' if missing else 'SUCCEEDED',
                       message='Incomplete bundle: ' + ', '.join(missing) if missing else 'Complete map saved')
         result = 1 if missing else 0
@@ -109,7 +129,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['start', 'status', 'wait', '_worker'])
     parser.add_argument('--destination')
-    parser.add_argument('--resolution', type=float, default=.2)
+    parser.add_argument('--resolution', type=float, default=0,
+                        help='Output voxel size in metres; 0 keeps native static-map detail (default 0.05 m)')
     parser.add_argument('--job', help='Job directory printed by start')
     parser.add_argument('--log-root', default='/home/nrc/catkin_ws/logs/map-save-jobs')
     parser.add_argument('--lock-fd', type=int)

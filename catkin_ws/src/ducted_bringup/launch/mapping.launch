@@ -1,5 +1,6 @@
 <launch>
   <arg name="dynamic_filter" default="true" />
+  <arg name="export_occupancy" default="false" />
   <arg name="base_ready_topic" default="/ducted/system/ready" />
   <arg name="base_ready_timeout" default="15.0" />
 
@@ -17,6 +18,7 @@
         required="true">
     <rosparam command="load" file="$(find ducted_mapping)/config/static_filter.yaml" />
     <param name="static_filter/enabled" value="$(arg dynamic_filter)" />
+    <param name="static_filter/export_observed_occupancy" value="$(arg export_occupancy)" />
     <param name="require_base_ready" value="true" />
     <param name="base_ready_topic" value="$(arg base_ready_topic)" />
     <param name="base_ready_timeout" value="$(arg base_ready_timeout)" />

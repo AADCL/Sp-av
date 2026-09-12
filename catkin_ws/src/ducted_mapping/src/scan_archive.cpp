@@ -5,6 +5,9 @@
 #include <pcl/filters/radius_outlier_removal.h>
 #include <fstream>
 #include <iomanip>
+#include <chrono>
+#include <deque>
+#include <future>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -14,7 +17,8 @@ ScanArchive::ScanArchive(const ArchiveConfig& c):config_(c) {
   StaticMapFilter validate(c.filter);
   if (!std::isfinite(c.min_range+c.max_range+c.scan_voxel+c.radius) || c.min_range<0 ||
       c.max_range<=c.min_range || c.scan_voxel<.001 || c.radius<=0 || c.min_neighbors<1 ||
-      c.max_bytes<1024 || c.max_scans<1) throw std::invalid_argument("invalid scan archive settings");
+      c.max_bytes<1024 || c.max_scans<1 || c.replay_workers<1 || c.replay_workers>4)
+    throw std::invalid_argument("invalid scan archive settings");
   std::string pattern=c.spool_root+"/mapping-scans-XXXXXX";
   std::vector<char> path(pattern.begin(),pattern.end()); path.push_back(0);
   if (!mkdtemp(path.data())) throw std::runtime_error("cannot create mapping scan archive in "+c.spool_root);
@@ -47,6 +51,8 @@ void ScanArchive::capture(const Cloud& cloud,size_t anchor,const Eigen::Matrix4d
 ReplayResult ScanArchive::replay(const std::vector<Eigen::Matrix4d>& anchors,const std::string& output,double map_resolution,
                                const std::function<void(size_t,size_t)>& progress) const {
   ReplayResult result;
+  const auto started=std::chrono::steady_clock::now();
+  auto elapsed=[&]() { return std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count(); };
   try {
     if(!error_.empty()) throw std::runtime_error(error_);
     if(scans_.empty()) throw std::runtime_error("no mapping scans recorded");
@@ -54,7 +60,14 @@ ReplayResult ScanArchive::replay(const std::vector<Eigen::Matrix4d>& anchors,con
     if(!std::isfinite(map_resolution)||map_resolution<0||map_resolution>1)throw std::runtime_error("invalid map save resolution");
     StaticMapFilter filter(filter_config); ObservedGrid grid;
     if(progress)progress(0,scans_.size());
-    for(const auto& scan:scans_) {
+    struct Prepared {
+      std::vector<Point3d> raw, cleaned;
+      Point3d sensor;
+      double stamp;
+    };
+    // Independent disk reads and radius searches overlap with the ordered
+    // temporal filter. At most replay_workers scans are being prepared.
+    auto prepare=[&](const Scan& scan) {
       if(scan.anchor>=anchors.size() || !anchors[scan.anchor].allFinite()) throw std::runtime_error("missing optimized scan anchor");
       Cloud::Ptr raw(new Cloud), cleaned(new Cloud);
       if(pcl::io::loadPCDFile(scan.file,*raw)!=0) throw std::runtime_error("cannot reload mapping scan");
@@ -65,19 +78,34 @@ ReplayResult ScanArchive::replay(const std::vector<Eigen::Matrix4d>& anchors,con
         for(const auto& p:cloud) { Eigen::Vector4d q=pose*Eigen::Vector4d(p.x,p.y,p.z,1); points.push_back({q.x(),q.y(),q.z()}); }
         return points;
       };
-      grid.scan(transform(*raw),sensor,config_.filter.max_clearing_range);
+      Prepared ready;ready.sensor=sensor;ready.stamp=scan.stamp;
+      if(config_.export_observed_occupancy) ready.raw=transform(*raw);
       if(config_.radius_filter && !raw->empty()) {
         pcl::RadiusOutlierRemoval<pcl::PointXYZI> radius; radius.setInputCloud(raw);
         radius.setRadiusSearch(config_.radius); radius.setMinNeighborsInRadius(config_.min_neighbors); radius.filter(*cleaned);
       } else *cleaned=*raw;
-      filter.updateScan(transform(*cleaned),sensor,scan.stamp);
+      ready.cleaned=transform(*cleaned);
+      return ready;
+    };
+    std::deque<std::future<Prepared>> pending;
+    size_t next=0;
+    auto enqueue=[&]() {
+      const Scan* scan=&scans_[next++];
+      pending.push_back(std::async(std::launch::async,[&,scan]() { return prepare(*scan); }));
+    };
+    while(next<scans_.size() && pending.size()<size_t(config_.replay_workers)) enqueue();
+    while(!pending.empty()) {
+      Prepared ready=pending.front().get();pending.pop_front();
+      if(next<scans_.size()) enqueue();
+      if(config_.export_observed_occupancy) grid.scan(ready.raw,ready.sensor,config_.filter.max_clearing_range);
+      filter.updateScan(ready.cleaned,ready.sensor,ready.stamp);
       if(filter.capacityExceeded()) throw std::runtime_error("static map filter capacity exceeded");
       ++result.scans;
       if(progress)progress(result.scans,scans_.size());
     }
     Cloud static_cloud, occupancy;
     for(const auto& p:filter.points()) { pcl::PointXYZI q; q.x=p.x;q.y=p.y;q.z=p.z;q.intensity=0;static_cloud.push_back(q); }
-    if(map_resolution>0 && !static_cloud.empty()) {
+    if(map_resolution>filter_config.map_voxel_size && !static_cloud.empty()) {
       // Temporal membership is decided at the original fine resolution first.
       // Coarser requested output cells must not merge different temporal states.
       Cloud::Ptr confirmed(new Cloud(static_cloud));pcl::VoxelGrid<pcl::PointXYZI> downsample;
@@ -88,15 +116,20 @@ ReplayResult ScanArchive::replay(const std::vector<Eigen::Matrix4d>& anchors,con
     for(const auto& cell:grid.cells()) { auto p=grid.center(cell.first); pcl::PointXYZI q;q.x=p.x;q.y=p.y;q.z=p.z;q.intensity=cell.second;occupancy.push_back(q); }
     for(const std::string name:{"GlobalMap.pcd","SurfMap.pcd","filterGlobalMap.pcd"})
       if(pcl::io::savePCDFileBinary(output+"/"+name,static_cloud)!=0) throw std::runtime_error("static map write failed");
-    if(pcl::io::savePCDFileBinary(output+"/observed_occupancy.pcd",occupancy)!=0) throw std::runtime_error("occupancy write failed");
+    if(config_.export_observed_occupancy && pcl::io::savePCDFileBinary(output+"/observed_occupancy.pcd",occupancy)!=0)
+      throw std::runtime_error("occupancy write failed");
     std::ofstream meta(output+"/mapping_metadata.yaml");
-    meta<<"format_version: 1\nframe_id: map\nfilter: ag_test_bayesian_temporal\nfilter_source_commit: 9a309a93fd900abccb8775ebdb727c65946f5c0d\n"
-        <<"occupancy_resolution: "<<grid.resolution()<<"\nfree_log_odds_max: -0.6190392084\nunknown_policy: blocked\n"
-        <<"static_map_resolution: "<<(map_resolution>0?map_resolution:filter_config.map_voxel_size)<<"\nmin_hit_scans: "<<filter_config.min_hit_scans<<"\nmin_observation_span: "<<filter_config.min_observation_span<<"\n"
-        <<"loop_corrected_replay: true\nscan_count: "<<result.scans<<"\nstatic_point_count: "<<static_cloud.size()<<"\n";
+    meta<<"format_version: 2\nframe_id: map\nfilter: ag_test_bayesian_temporal\nfilter_source_commit: 9a309a93fd900abccb8775ebdb727c65946f5c0d\n"
+        <<"occupancy_exported: "<<(config_.export_observed_occupancy?"true":"false")<<"\n";
+    if(config_.export_observed_occupancy)
+      meta<<"occupancy_resolution: "<<grid.resolution()<<"\nfree_log_odds_max: -0.6190392084\nunknown_policy: blocked\n";
+    meta<<"static_map_resolution: "<<std::max(map_resolution,filter_config.map_voxel_size)<<"\nmin_hit_scans: "<<filter_config.min_hit_scans<<"\nmin_observation_span: "<<filter_config.min_observation_span<<"\n"
+        <<"loop_corrected_replay: true\nscan_count: "<<result.scans<<"\nstatic_point_count: "<<static_cloud.size()<<"\n"
+        <<"archive_directory: "<<std::quoted(directory_)<<"\nreplay_workers: "<<config_.replay_workers<<"\nexport_seconds: "<<elapsed()<<"\n";
     meta.close(); if(!meta) throw std::runtime_error("mapping metadata write failed");
     result.static_points=static_cloud.size(); result.success=true;
   } catch(const std::exception& e) { result.error=e.what(); }
+  result.elapsed_seconds=elapsed();
   return result;
 }
 }

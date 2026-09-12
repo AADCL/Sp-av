@@ -8,14 +8,17 @@
 
 namespace ducted_mapping {
 struct ArchiveConfig {
+  ArchiveConfig() { filter.map_voxel_size=.05; }
   StaticMapFilterConfig filter;
   std::string spool_root="/home/nrc/catkin_ws/logs";
   size_t max_bytes=2147483648ULL, max_scans=36000;
   double min_range=.5, max_range=50, scan_voxel=.05, radius=.15;
   int min_neighbors=2;
   bool radius_filter=true;
+  bool export_observed_occupancy=false;
+  int replay_workers=2;
 };
-struct ReplayResult { bool success=false; size_t static_points=0, scans=0; std::string error; };
+struct ReplayResult { bool success=false; size_t static_points=0, scans=0; std::string error; double elapsed_seconds=0; };
 class ScanArchive {
 public:
   explicit ScanArchive(const ArchiveConfig& config);

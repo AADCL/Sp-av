@@ -6,3 +6,7 @@ Changes: namespace, finite/bounded validation, monotonic scan stamps.
 Added loop-corrected scan archive, explicit observed-space voxel ray traversal,
 resource-limited replay, metadata and no-overwrite atomic map bundle publication.
 Real-time localization/obstacle scans are not filtered by this static-map export.
+Export preparation uses bounded parallel reads/radius searches with ordered
+temporal updates. Native static output is 5 cm; Bayesian membership thresholds
+remain unchanged. The separate observed-space grid is opt-in because EGO uses
+live scans. Metadata v2 explicitly records whether that grid was exported.
