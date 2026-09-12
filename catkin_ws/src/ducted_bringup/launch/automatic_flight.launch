@@ -1,6 +1,10 @@
 <launch>
   <!-- Base and localization must be ready. Height is measured or explicitly initialized for bounded takeoff. -->
   <arg name="enable_commands" default="false" />
+  <arg name="height_mode" default="terrain" />
+  <arg name="takeoff_reference_z" default="0.0" />
+  <arg name="relative_reference_file" default="" />
+  <arg name="slow_land_speed" default="0.2" />
   <arg name="enable_flight_output" default="false" />
   <arg name="enable_navigation_output" default="false" />
   <arg name="geometry_confirmed" default="false" />
@@ -14,6 +18,9 @@
   <arg name="navigation_config" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
   <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
   <include file="$(find ducted_bringup)/launch/flight_control.launch">
+    <arg name="height_mode" value="$(arg height_mode)" />
+    <arg name="takeoff_reference_z" value="$(arg takeoff_reference_z)" />
+    <arg name="slow_land_speed" value="$(arg slow_land_speed)" />
     <arg name="enable_flight_output" value="$(arg enable_flight_output)" />
     <arg name="require_automatic_lease" value="true" />
     <arg name="start_rc_monitor" value="$(arg start_rc_monitor)" />
@@ -26,11 +33,14 @@
     <arg name="config_file" value="$(arg navigation_config)" />
   </include>
   <include file="$(find ducted_bringup)/launch/waypoint_mission.launch">
+    <arg name="height_mode" value="$(arg height_mode)" />
     <arg name="mission_file" value="$(arg mission_file)" />
     <arg name="enable_commands" value="$(arg enable_commands)" />
     <arg name="require_automatic_lease" value="true" />
   </include>
   <include file="$(find ducted_bringup)/launch/automatic_sequence.launch">
+    <arg name="height_mode" value="$(arg height_mode)" />
+    <arg name="relative_reference_file" value="$(arg relative_reference_file)" />
     <arg name="enable_commands" value="$(arg enable_commands)" />
     <arg name="finish" value="$(arg finish)" />
     <arg name="takeoff_rise" value="$(arg takeoff_rise)" />

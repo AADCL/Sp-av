@@ -9,6 +9,7 @@
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
   <depend>ducted_msgs</depend>
+  <exec_depend>ducted_control</exec_depend>
   <depend>ducted_navigation</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>

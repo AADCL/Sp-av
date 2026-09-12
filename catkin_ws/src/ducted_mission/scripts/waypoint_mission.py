@@ -42,6 +42,12 @@ class WaypointMissionNode:
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
         self.require_automatic_lease=rospy.get_param("~require_automatic_lease",False) is True
+        self.height_mode=rospy.get_param('~height_mode','terrain')
+        if self.height_mode not in ('terrain','takeoff_relative'):
+            raise ValueError('unknown mission height mode')
+        if self.height_mode=='takeoff_relative' and (not self.require_automatic_lease
+                or rospy.get_param('/ducted_navigation/height_mode','')!='takeoff_relative'):
+            raise ValueError('relative mission requires matching navigation and automatic lease')
         self.automatic_lease=(False,-math.inf)
         rospy.Subscriber("/ducted/automatic/mission_lease",Bool,self._automatic_lease_callback,queue_size=1)
         self.odom_frame = str(rospy.get_param("~odom_frame", "odom"))
@@ -265,6 +271,7 @@ class WaypointMissionNode:
         controller = (self.controller if controller_fresh and self.controller is not None
                       else ControllerObservation(False, "", ""))
         gates = GateSnapshot(
+            height_mode=getattr(self,'height_mode','terrain'),
             now=wall,
             base_ready=(self.base_ready and (not getattr(self,'require_automatic_lease',False)
                         or (self.automatic_lease[0] and 0<=wall-self.automatic_lease[1]<=.5))),

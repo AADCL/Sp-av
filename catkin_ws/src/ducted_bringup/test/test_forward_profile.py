@@ -17,6 +17,17 @@ class ForwardProfileTests(unittest.TestCase):
         cls.build = staticmethod(module.build_profile)
         factory=getattr(module,'build_contact_reference',None)
         cls.contact_factory=staticmethod(factory) if factory else None
+        cls.relative=staticmethod(getattr(module,'build_relative_profile',lambda **kw:None))
+
+    def test_px4_profile_uses_rise_not_absolute_one_or_measured_agl(self):
+        p=self.relative(x=0.,y=0.,z=.4,yaw=math.pi/2)
+        self.assertIsNotNone(p)
+        self.assertAlmostEqual(p['waypoint']['position'][2],1.4)
+        self.assertAlmostEqual(p['waypoint']['position'][1],3.)
+        self.assertEqual(p['height_mode'],'takeoff_relative')
+        self.assertEqual(p['finish'],'land')
+        self.assertEqual(p['landing_mode'],'AUTO.LAND')
+        self.assertNotIn('slow_land_speed',p)
 
     def profile(self, **updates):
         self.assertIsNotNone(self.build, 'task preparation script is missing')

@@ -16,6 +16,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
 
 from ducted_control.flight import FlightConfig, FlightPolicy, Pose
+from ducted_control.landing import SLOW_LANDING_BLOCK_REASON
 
 
 class FlightController:
@@ -200,6 +201,8 @@ class FlightController:
     def _command_callback(self, request):
         target = None
         command = str(request.command).strip().lower()
+        if command == 'slow_land':
+            return FlightCommandResponse(accepted=False, message=SLOW_LANDING_BLOCK_REASON)
         if command == 'takeoff':
             stamp_value = self._stamp(request.target)
             frame = str(request.target.header.frame_id)

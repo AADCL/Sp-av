@@ -64,6 +64,10 @@ class FlightConfig:
         'max_yaw_rate', 'max_lead')
 
     def __init__(self, values):
+        self.height_mode = values.get('height_mode', 'terrain')
+        self.takeoff_reference_z = float(values.get('takeoff_reference_z', 0.))
+        if self.height_mode not in ('terrain', 'takeoff_relative') or not math.isfinite(self.takeoff_reference_z):
+            raise ValueError('invalid flight height reference')
         self.enable_flight_output = values.get('enable_flight_output', False) is True
         self.require_automatic_lease = values.get('require_automatic_lease', False) is True
         for name, default in (('slow_land_speed', .2), ('slow_land_timeout', 30.),
@@ -95,6 +99,8 @@ class FlightConfig:
             raise ValueError('prestream gap must be shorter than duration')
         if self.mode_request_timeout > self.mode_feedback_timeout:
             raise ValueError('mode request timeout exceeds feedback timeout')
+        if self.height_mode == 'takeoff_relative' and not self.min_z+.15 <= self.takeoff_reference_z <= self.max_z-1.:
+            raise ValueError('takeoff datum and bounded landing must fit flight envelope')
 
 
 class FlightPolicy:
@@ -125,6 +131,7 @@ class FlightPolicy:
         self._contact_since = None
         self._contact_stamp = None
         self._contact_samples = 0
+        self._relative_contact_history = deque(maxlen=600)
         self._rc = self._source_record()
         self._base = {'valid': False, 'wall': None}
         self._external = {'valid': False, 'wall': None}
@@ -253,6 +260,13 @@ class FlightPolicy:
         return accepted
 
     def _landing_terrain_reason(self, ros_now, wall_now):
+        if self.config.height_mode == 'takeoff_relative':
+            self._height_source = 'PX4_RELATIVE'
+            if not self._fresh(self._pose, ros_now, wall_now, self.config.telemetry_timeout):
+                return 'PX4 landing pose unavailable or stale'
+            if self._pose['pose'].z < self.config.takeoff_reference_z-.20:
+                return 'relative landing lower bound exceeded'
+            return ''
         self._height_source = 'UNAVAILABLE'
         if self._fresh(self._terrain, ros_now, wall_now, self.config.telemetry_timeout):
             if self._slow_ground is not None and abs(self._terrain['ground_z']-self._slow_ground) > .08:
@@ -542,7 +556,9 @@ class FlightPolicy:
             if terrain: return Result(False, terrain)
             if self._landed.get('landed_state') != IN_AIR:
                 return Result(False, 'slow landing requires fresh IN_AIR feedback')
-            self._slow_ground = self._terrain['ground_z']
+            self._slow_ground = (self.config.takeoff_reference_z if self.config.height_mode == 'takeoff_relative'
+                                 else self._terrain['ground_z'])
+            self._relative_contact_history.clear()
             self._generation += 1
             self.target = self._pose['pose']
             self._last_output = self.target
@@ -713,6 +729,32 @@ class FlightPolicy:
                     and not self._rc.get('kill') and self._fcu.get('mode') == 'OFFBOARD')
         return False
 
+    def _relative_descent(self, ros_now, wall_now):
+        actual = self._pose['pose']
+        datum = self.config.takeoff_reference_z
+        self.target = Pose(self.target.x, self.target.y, datum-.15, self.target.yaw)
+        history = self._relative_contact_history
+        contact = (self._landed['landed_state'] == ON_GROUND and abs(actual.z-datum) <= .10)
+        if not contact:
+            history.clear()
+        elif not history or self._pose['stamp'] > history[-1][1]:
+            # Only fresh, advancing measured samples count. Five seconds at an
+            # airborne plateau cannot satisfy PX4 ground feedback + datum band.
+            if history and (wall_now-history[-1][0] > .5
+                            or abs(actual.z-history[0][2]) > .03):
+                history.clear()
+            history.append((wall_now, self._pose['stamp'], actual.z))
+            while len(history)>1 and wall_now-history[1][0] >= 5.:
+                history.popleft()
+            if (len(history)>=10 and wall_now-history[0][0] >= 5.
+                    and self._pose['stamp']-history[0][1] >= 5.-1e-6
+                    and max(s[2] for s in history)-min(s[2] for s in history) <= .03):
+                target, previous = self.target, self._last_output
+                self.command('land', None, ros_now, wall_now)
+                self.target, self._last_output = target, previous
+                return self.tick(ros_now, wall_now)
+        return self._stream_actions(wall_now)
+
     def tick(self, ros_now, wall_now):
         if not self._set_now(ros_now, wall_now):
             return ()
@@ -863,6 +905,8 @@ class FlightPolicy:
                 self.command('hold', None, ros_now, wall_now)
                 self.reason = terrain_reason + '; holding; explicit action required'
                 return self._stream_actions(wall_now)
+            if self.config.height_mode == 'takeoff_relative':
+                return self._relative_descent(ros_now, wall_now)
             # Use current external altitude above the measured floor. Relating
             # this to the FCU's current Z also avoids applying a fixed estimator
             # translation bias to the final ground-contact target.

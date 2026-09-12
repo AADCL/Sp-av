@@ -36,7 +36,7 @@ class NavigationContractTest(unittest.TestCase):
         for root in roots:
             files.extend(root.rglob("*.py") if root.is_dir() else (root,))
         text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in files)
-        for forbidden in ("mavros_msgs", "CommandBool", "SetMode", "arming", "takeoff",
+        for forbidden in ("mavros_msgs", "CommandBool", "SetMode", "arming", '"takeoff"', "'takeoff'",
                           "AUTO.LAND", "RCState"):
             self.assertNotIn(forbidden, text)
         self.assertIn('rospy.Publisher("target", FlightSetpoint', text)

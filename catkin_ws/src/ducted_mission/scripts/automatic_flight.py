@@ -9,12 +9,13 @@ from time import monotonic
 import rospy
 import tf2_ros
 from ducted_mission.automatic import AutomaticFlight, AutoConfig, Observation, matched_cloud_pose
-from ducted_mission.ground_reference import TakeoffReference, HeightReading
+from ducted_mission.ground_reference import TakeoffReference, RelativeReference, HeightReading
 from ducted_mission.automatic_services import bootstrap
 from ducted_mission.runtime import PersistentDeadlineProcess
 from ducted_mission.mission import StampedInput
 from ducted_mission.msg import MissionStatus
 from ducted_msgs.msg import RCState, FlightControlStatus, TerrainHeight
+from ducted_control.landing import SLOW_LANDING_BLOCK_REASON
 from ducted_navigation.msg import NavigationStatus
 from ducted_navigation.runtime import transform_points
 from geometry_msgs.msg import PoseStamped
@@ -39,6 +40,8 @@ class AutomaticNode:
             '/ducted/mission/waypoint_mission/require_automatic_lease')
         self.activation_gate=next((name+' is not enabled' for name in required_gates
                                    if rospy.get_param(name,False) is not True),'')
+        if self.core.config.finish == 'slow_land':
+            self.activation_gate = self.activation_gate or SLOW_LANDING_BLOCK_REASON
         self.stop=threading.Event();self.work=threading.Event();self.pending=None
         self.timeout=float(rospy.get_param('~telemetry_timeout',.5))
         self.rpc_timeout=float(rospy.get_param('~service_timeout',1.))
@@ -63,6 +66,18 @@ class AutomaticNode:
             -float(rospy.get_param('/ducted_navigation/planner/snapshot_motion_margin',.05)))
         reference=rospy.get_param('~ground_reference', {})
         self.contact_reference=TakeoffReference(reference,rospy.get_param('/run_id','')) if reference else None
+        self.relative_reference = None
+        if self.core.config.height_mode == 'takeoff_relative':
+            if self.contact_reference:
+                raise ValueError('relative task cannot also load a terrain contact reference')
+            self.relative_reference = RelativeReference(rospy.get_param('~relative_reference', {}),
+                                                        rospy.get_param('/run_id',''))
+            self.reference_z = float(self.relative_reference.anchor['z'])
+            for prefix in ('/flight_controller/flight', '/ducted_navigation'):
+                if (rospy.get_param(prefix+'/height_mode','') != 'takeoff_relative'
+                        or abs(float(rospy.get_param(prefix+'/takeoff_reference_z',math.nan))-self.reference_z)>1e-6
+                        or not math.isfinite(float(rospy.get_param(prefix+'/takeoff_reference_z',math.nan)))):
+                    raise ValueError('height mode/datum differs between automatic, flight and navigation')
         if self.contact_reference and abs(self.contact_reference.contact_agl-self.half_height)>.001:
             raise ValueError('contact reference does not match the centered aircraft geometry')
         self.streams={};self.messages={};self.readiness={};self.last_ros=0.
@@ -74,6 +89,8 @@ class AutomaticNode:
             'control':('/ducted/control/status',FlightControlStatus),'mission':('/ducted/mission/status',MissionStatus),
             'navigation':('/ducted/navigation/status',NavigationStatus),'terrain':('/ducted/terrain/height',TerrainHeight),
             'cloud':(rospy.get_param('~cloud_topic','/ducted/relocalization/registered_scan'),PointCloud2)}
+        if self.relative_reference:
+            topics['fcu_pose']=('/mavros/local_position/pose',PoseStamped)
         for name,(topic,kind) in topics.items():
             self.streams[name]=StampedInput(name,self.timeout,self.timeout,.05)
             rospy.Subscriber(topic,kind,lambda m,n=name:self.receive(n,m),queue_size=1)
@@ -114,6 +131,11 @@ class AutomaticNode:
                 valid=(message.header.frame_id=='odom' and (not message.valid or
                     (all(math.isfinite(x) for x in (message.agl,message.ground_z,message.variance))
                      and 0<=message.variance<=.02)))
+            elif name=='fcu_pose':
+                p,q=message.pose.position,message.pose.orientation
+                valid=(message.header.frame_id=='odom'
+                    and all(math.isfinite(v) for v in (p.x,p.y,p.z,q.x,q.y,q.z,q.w))
+                    and abs(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w-1)<.001)
             elif name=='rc':valid=message.valid and message.mode in ('manual','hold','command')
         except Exception:
             stamp=now;valid=False
@@ -133,6 +155,7 @@ class AutomaticNode:
         if now<self.last_ros:
             self.messages.clear();self.readiness.clear();self.odom_history.clear()
             if self.contact_reference:self.contact_reference.failure='localization clock rolled back; prepare again'
+            if self.relative_reference:self.relative_reference.failure='localization clock rolled back; prepare again'
         self.last_ros=now
         def fresh(name):
             return name in self.messages and self.streams[name].fresh(wall,now)
@@ -140,6 +163,7 @@ class AutomaticNode:
             value,arrival=self.readiness.get(topic,(False,-math.inf))
             return value and 0<=wall-arrival<=limit
         critical=all(fresh(n) for n in ('fcu','landed','odom','rc','control'))
+        if self.relative_reference:critical=critical and fresh('fcu_pose')
         critical=critical and ready('/ducted/system/ready',1.5) and ready('/ducted/external_odometry/ready')
         if critical:
             f,rc=self.messages['fcu'],self.messages['rc']
@@ -165,7 +189,13 @@ class AutomaticNode:
                 measured=dict(ground_z=t.ground_z,agl=t.agl,stamp=stamp)
         height=HeightReading(False,reason='valid measured terrain required in this phase')
         phase=self.core.state;control=m['control']
-        if (phase in ('IDLE','ENGAGING','WAIT_OFFBOARD','TAKEOFF_REQUEST','WAIT_TAKEOFF')
+        actual = m['fcu_pose'].pose.position if self.relative_reference else p
+        if self.relative_reference:
+            ref_reason=self.relative_reference.check(actual.x,actual.y,actual.z,yaw,tilt,speed,
+                m['landed'].landed_state==1,now)
+            if ref_reason and not reason:reason=ref_reason
+            height=HeightReading(not ref_reason,actual.z-self.reference_z,'PX4_RELATIVE',False,ref_reason)
+        elif (phase in ('IDLE','ENGAGING','WAIT_OFFBOARD','TAKEOFF_REQUEST','WAIT_TAKEOFF')
                 and self.contact_reference is not None):
             if not fresh('terrain'):
                 height=HeightReading(False,reason='terrain node heartbeat unavailable or stale')
@@ -187,6 +217,10 @@ class AutomaticNode:
         rise=(self.core.config.takeoff_agl-height.agl if self.core.config.takeoff_agl > 0
               else self.core.config.takeoff_rise)
         target=self.core.target_z if phase in self.core.ACTIVE else p.z+rise
+        if self.relative_reference:
+            # Point cloud geometry remains in external odom. Translate the PX4
+            # altitude target by the current bounded estimator offset for this check.
+            target=(self.core.target_z-actual.z+p.z if phase in self.core.ACTIVE else p.z+rise)
         bottom=p.z-self.half_height*math.cos(tilt)-self.radius*math.sin(tilt)
         top=target+self.half_height+self.margin+self.radius*math.sin(tilt)
         radius=self.radius+self.margin+self.half_height*math.sin(tilt)
@@ -203,7 +237,7 @@ class AutomaticNode:
         return Observation(healthy=not reason,reason=reason,armed=f.armed,
             on_ground=m['landed'].landed_state==1,in_air=m['landed'].landed_state==2,offboard=f.mode=='OFFBOARD',
             controller=control.state,controller_ready=control.ready,mission=mission.state,
-            mission_session=mission.session_id+':'+str(mission.epoch),x=p.x,y=p.y,z=p.z,
+            mission_session=mission.session_id+':'+str(mission.epoch),x=actual.x,y=actual.y,z=actual.z,
             speed=speed,corridor_clear=corridor,agl=height.agl,
             height_measured=height.measured,height_source=height.source,flight_healthy=bool(critical),
             target_agl_safe=self.min_target_agl<=height.agl+rise<=self.max_target_agl)
@@ -213,10 +247,17 @@ class AutomaticNode:
 
     def start(self,_request):
         with self.lock:
+            if self.relative_reference and self.relative_reference.started is not None:
+                return TriggerResponse(False,'PX4 takeoff datum consumed; stop nodes and prepare again')
             if self.contact_reference and self.contact_reference.started is not None:
                 return TriggerResponse(False,'contact reference already consumed; stop nodes and prepare again')
             accepted,action=self.core.start(self.snapshot(),monotonic())
             if action:
+                if self.relative_reference:
+                    try:self.relative_reference.begin(rospy.get_time())
+                    except ValueError as error:
+                        self.enqueue(self.core.cancel(monotonic(),str(error)))
+                        return TriggerResponse(False,str(error))
                 if self.contact_reference:
                     try:self.contact_reference.begin(rospy.get_time(),monotonic())
                     except ValueError as error:
@@ -263,6 +304,10 @@ class AutomaticNode:
                             target_z=self.core.target_z,finish=self.core.config.finish,
                             healthy=observation.healthy,health_reason=observation.reason,
                             height_source=observation.height_source,height_measured=observation.height_measured)
+                status['height_mode']=self.core.config.height_mode
+                if self.relative_reference:
+                    status['takeoff_reference_z']=self.reference_z
+                    status['relative_height']=observation.z-self.reference_z
             self.pub.publish(String(data=json.dumps(status)))
 
     def shutdown(self):

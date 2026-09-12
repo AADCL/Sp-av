@@ -7,6 +7,8 @@ catkin_install_python(PROGRAMS scripts/rc_monitor.py scripts/flight_controller.p
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 install(DIRECTORY config DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_landing_compatibility.py)
+  catkin_add_nosetests(test/test_relative_landing.py)
   catkin_add_nosetests(test/test_rc.py)
   catkin_add_nosetests(test/test_rc_runtime.py)
   catkin_add_nosetests(test/test_flight.py)

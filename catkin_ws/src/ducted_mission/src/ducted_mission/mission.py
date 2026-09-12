@@ -161,6 +161,7 @@ class GateSnapshot:
     controller_ready: bool
     controller_state: str
     controller_age: float
+    height_mode: str = 'terrain'
 
 
 @dataclass(frozen=True)
@@ -304,6 +305,8 @@ class MissionCore:
         self.execution_target = None
 
     def _gate_reason(self, gates):
+        if gates.height_mode not in ('terrain','takeoff_relative'):
+            return 'unknown mission height mode'
         timeout = self.config.telemetry_timeout
         checks = (
             (gates.base_ready and math.isfinite(gates.base_age)
@@ -314,8 +317,8 @@ class MissionCore:
              "RC command authority unavailable"),
             (math.isfinite(gates.odom_age) and 0.0 <= gates.odom_age <= timeout,
              "localization unavailable or stale"),
-            (gates.terrain_valid and gates.terrain_ready
-             and math.isfinite(gates.terrain_age) and 0.0 <= gates.terrain_age <= timeout,
+            (gates.height_mode=='takeoff_relative' or (gates.terrain_valid and gates.terrain_ready
+             and math.isfinite(gates.terrain_age) and 0.0 <= gates.terrain_age <= timeout),
              "terrain unavailable or stale"),
             (math.isfinite(gates.planner_age) and 0.0 <= gates.planner_age <= timeout,
              "planner unavailable or stale"),

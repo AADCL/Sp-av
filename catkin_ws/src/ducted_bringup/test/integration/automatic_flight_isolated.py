@@ -32,10 +32,11 @@ from std_msgs.msg import Bool, Header, String
 from std_srvs.srv import Trigger
 
 ROOT = Path('/home/nrc/catkin_ws')
+RELATIVE = '--px4-relative' in sys.argv
 NO_ACQUISITION = '--ground-contact-no-acquisition' in sys.argv
 GROUND_CONTACT = '--ground-contact' in sys.argv or NO_ACQUISITION
-SLOW_FORWARD = '--slow-forward' in sys.argv or GROUND_CONTACT
-LOG = ROOT/('logs/ground_contact_no_acquisition' if NO_ACQUISITION else
+SLOW_FORWARD = '--slow-forward' in sys.argv or GROUND_CONTACT or RELATIVE
+LOG = ROOT/('logs/px4_relative_native_land' if RELATIVE else 'logs/ground_contact_no_acquisition' if NO_ACQUISITION else
             'logs/ground_contact_isolated' if GROUND_CONTACT else
             'logs/slow_forward_isolated' if SLOW_FORWARD else 'logs/automatic_flight_isolated')
 LOG.mkdir(exist_ok=True)
@@ -48,6 +49,7 @@ data = dict(x=0., y=0., z=.4, yaw=0., mode='POSCTL', rc_mode='command',
             planner_targets=[], terrain_valid=True, velocity=(0., 0., 0.))
 data['slow_targets'] = []
 data['land_entry_z'] = None
+data['native_contact_time'] = None
 data['height_sources'] = []
 if SLOW_FORWARD: data['yaw'] = math.pi/3
 
@@ -183,13 +185,18 @@ try:
                     delta=(desired_yaw-data['yaw']+math.pi)%(2*math.pi)-math.pi
                     data['yaw'] += max(-.01,min(.01,delta))
                 elif data['mode']=='AUTO.LAND':
-                    data['z']=max(.4,data['z']-.006)
-                    if data['z']<=.401:data['armed']=False
-                    data['velocity']=(0.,0.,-.3 if data['armed'] else 0.)
+                    data['z']=max(.4,data['z']-(.014 if RELATIVE else .006))
+                    if data['z']<=.401:
+                        if data['native_contact_time'] is None:data['native_contact_time']=time.monotonic()
+                        if time.monotonic()-data['native_contact_time']>=2.:data['armed']=False
+                    data['velocity']=(0.,0.,(-.7 if RELATIVE else -.3) if data['z']>.401 else 0.)
                 else:
                     data['velocity']=(0.,0.,0.)
                 now = rospy.Time.now()
-                m = pose(data['x'],data['y'],data['z'])
+                # Native landed feedback must not be vetoed by a shifted local
+                # height datum after contact. Both estimators share this offset.
+                reported_z=data['z']+(.2 if RELATIVE and data['native_contact_time'] is not None else 0.)
+                m = pose(data['x'],data['y'],reported_z)
                 m.header.stamp = now
                 m.pose.orientation.z, m.pose.orientation.w = math.sin(data['yaw']/2),math.cos(data['yaw']/2)
                 odom = Odometry()
@@ -217,7 +224,9 @@ try:
                         height.reason='insufficient terrain support at reference'
                 pubs['fcu'].publish(fcu); pubs['pose'].publish(m); pubs['odom'].publish(odom)
                 pubs['landed'].publish(landed); pubs['rc'].publish(rc)
-                pubs['external'].publish(True); pubs['height'].publish(height); pubs['terrain_ready'].publish(height.valid)
+                pubs['external'].publish(True)
+                if not RELATIVE:
+                    pubs['height'].publish(height); pubs['terrain_ready'].publish(height.valid)
                 wall = time.monotonic()
                 if wall-last_base >= .5:
                     pubs['base'].publish(True); last_base=wall
@@ -239,16 +248,28 @@ try:
     if SLOW_FORWARD:
         mission_config['defaults'].update(dwell=5.,timeout=60.)
         mission_config['waypoints']=[dict(frame_id='odom',position=[1.5,3*math.sin(math.pi/3),1.3],yaw=math.pi/3)]
+    if RELATIVE:mission_config['waypoints'][0]['position'][2]=1.4
     missionfile=LOG/'mission.yaml';missionfile.write_text(yaml.safe_dump(mission_config))
     config=yaml.safe_load((ROOT/'src/ducted_navigation/config/local_avoidance.yaml').read_text())
     config['planner']['goal_tolerance']=.06;config['planner']['progress_timeout']=8.
     if SLOW_FORWARD: config['planner'].update(min_agl=.3,max_speed=.3)
+    if RELATIVE:
+        config.update(height_mode='takeoff_relative',takeoff_reference_z=.4)
+        config['planner']['min_agl']=.25
     navfile=LOG/'navigation.yaml';navfile.write_text(yaml.safe_dump(config))
     args=['roslaunch','--skip-log-check','ducted_bringup','automatic_flight.launch',
           'start_rc_monitor:=false','finish:=land','mission_file:='+str(missionfile),
           'navigation_config:='+str(navfile)]
-    if SLOW_FORWARD:
+    if SLOW_FORWARD and not RELATIVE:
         args=[v for v in args if v!='finish:=land']+['finish:=slow_land','takeoff_agl:=1.0']
+    if RELATIVE:
+        reference=dict(confirmed=True,frame_id='odom',run_id=rospy.get_param('/run_id'),
+            prepared_stamp=rospy.get_time(),anchor=dict(x=0.,y=0.,z=.4,yaw=data['yaw']))
+        ref_file=LOG/'relative_reference.yaml'
+        ref_file.write_text(yaml.safe_dump(dict(relative_reference=reference)))
+        args=[v for v in args if not v.startswith('takeoff_agl:=')]
+        args+=['height_mode:=takeoff_relative','takeoff_reference_z:=0.4','takeoff_rise:=1.0',
+               'takeoff_agl:=0.0','relative_reference_file:='+str(ref_file)]
     if GROUND_CONTACT:
         from ducted_mission.ground_reference import TakeoffReference
         reference=dict(confirmed=True,source='operator_ground_contact',frame_id='odom',
@@ -284,6 +305,27 @@ try:
     cancel=rospy.ServiceProxy('/ducted/automatic/cancel',Trigger)
     time.sleep(.7)
     check('unarmed aircraft rejects automatic start',not start().success)
+    if SLOW_FORWARD and not RELATIVE:
+        # The old fake vehicle generated ON_GROUND from Z alone. It did not
+        # model PX4 1.12.3's descent-intent threshold; keep the real release
+        # gate active here instead of treating that synthetic contact as proof.
+        with lock:data['armed']=True;data['obstacle']=False
+        time.sleep(.8)
+        result=start()
+        check('native landing incompatibility blocks the automatic task',
+              not result.success and 'landing' in result.message, result.message)
+        flight=rospy.ServiceProxy('/ducted/control/command',FlightCommand)
+        result=flight('slow_land',PoseStamped())
+        check('direct slow landing command is also blocked',
+              not result.accepted and 'not yet compatible' in result.message, result.message)
+        if RELATIVE:
+            result=flight('engage',PoseStamped())
+            check('direct relative engage cannot bypass automatic gate',
+                  not result.accepted and 'not yet compatible' in result.message, result.message)
+        time.sleep(.3)
+        check('blocked stack emits no flight setpoint',data['target'] is None)
+        check('blocked stack requests no mode change',not data['mode_calls'])
+        raise SystemExit(0)
     with lock:data['armed']=True;data['obstacle']=True
     time.sleep(.3)
     check('occupied takeoff corridor rejects',not start().success)
@@ -299,22 +341,35 @@ try:
         check('no automatic landing or restart on acquisition failure','AUTO.LAND' not in data['mode_calls'])
         check('healthy flight controller holds after height failure',wait_for(lambda:data['flight'].state=='HOLD',3.))
         raise SystemExit(0)
-    check('waypoint tracking after measured takeoff',wait_for(lambda:data['flight'].state=='TRACK',20.),str(data['automatic']))
+    check('waypoint tracking after takeoff',wait_for(lambda:data['flight'].state=='TRACK',20.),str(data['automatic']))
     check('automatic waypoint and landing sequence completed',wait_for(lambda:data['automatic']['state']=='SUCCEEDED',65. if SLOW_FORWARD else 45.),str(data['automatic']))
     check('completion requires ground and disarmed',data['z']<=.41 and not data['armed'])
     check('OFFBOARD and landing each requested once',data['mode_calls'].count('OFFBOARD')==1 and data['mode_calls'].count('AUTO.LAND')==1,str(data['mode_calls']))
     expected=(1.5,3*math.sin(math.pi/3)) if SLOW_FORWARD else (.4,.3)
     check('actual waypoint reached before landing',any(s.get('state')=='LANDING' for s in data['automatic_history']) and abs(data['x']-expected[0])<.08 and abs(data['y']-expected[1])<.08)
-    if SLOW_FORWARD:
+    if SLOW_FORWARD and not RELATIVE:
         samples=data['slow_targets']
         check('controlled descent setpoints observed',len(samples)>20,len(samples))
         rates=[(a[1]-b[1])/(b[0]-a[0]) for a,b in zip(samples,samples[1:]) if b[0]>a[0]]
-        check('descent target rate limited to 0.2 m/s',max(rates)<=.205,max(rates))
+        check('descent target rate limited to configured speed',max(rates)<=.205,max(rates))
         check('AUTO.LAND waits for measured contact',data['land_entry_z']<=.41,data['land_entry_z'])
     if GROUND_CONTACT:
         check('contact datum used before lidar acquisition',any(s.get('height_source')=='CONTACT_REFERENCE' for s in data['automatic_history']))
         check('takeoff handed over to measured lidar height',any(s.get('height_measured') and s.get('state')=='RUNNING' for s in data['automatic_history']))
         check('near-ground descent used explicit landing reference',any(source=='LANDING_REFERENCE' and valid for _,source,valid in data['height_sources']))
+    if RELATIVE:
+        check('no terrain measurement required through the full flight',
+            any(s.get('state')=='RUNNING' and s.get('height_source')=='PX4_RELATIVE'
+                and not s.get('height_measured') for s in data['automatic_history']))
+        check('PX4 rise target is origin plus one metre',
+            any(s.get('state')=='RUNNING' and abs(s.get('target_z',0)-1.4)<.01 for s in data['automatic_history']))
+        check('native AUTO.LAND starts from the hover altitude',data['land_entry_z']>1.3,data['land_entry_z'])
+        check('no custom descent setpoints emitted',not data['slow_targets'])
+        check('native ground and disarm feedback completes despite local Z offset',
+              abs(data['automatic']['relative_height']-.2)<.01,data['automatic'])
+        blocked=rospy.ServiceProxy('/ducted/control/command',FlightCommand)('slow_land',PoseStamped())
+        check('custom slow landing remains blocked',not blocked.accepted and 'not yet compatible' in blocked.message)
+        check('completed reference cannot restart',not start().success)
     count=len(data['mode_calls']);time.sleep(.6)
     check('completed flight does not restart itself',len(data['mode_calls'])==count)
     if SLOW_FORWARD:

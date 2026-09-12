@@ -33,6 +33,7 @@ install(DIRECTORY config
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_relative_height.py)
   catkin_add_nosetests(test/test_trajectory_guard.py)
   catkin_add_nosetests(test/test_planner_core.py)
   catkin_add_nosetests(test/test_runtime.py)

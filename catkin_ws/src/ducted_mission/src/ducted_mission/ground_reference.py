@@ -13,6 +13,41 @@ class HeightReading:
     reason: str = ''
 
 
+class RelativeReference:
+    """One-use PX4 takeoff datum; never represents a ground measurement."""
+    def __init__(self, values, run_id):
+        self.anchor = values.get('anchor', {})
+        self.stamp = float(values.get('prepared_stamp', 0.))
+        if (values.get('confirmed') is not True or values.get('frame_id') != 'odom'
+                or not run_id or values.get('run_id') != run_id or self.stamp <= 0
+                or not all(math.isfinite(float(self.anchor.get(k, math.nan))) for k in ('x','y','z','yaw'))
+                or not math.isfinite(self.stamp)):
+            raise ValueError('invalid PX4 takeoff datum or ROS session changed; prepare again')
+        self.started = None
+        self.failure = ''
+
+    def check(self, x, y, z, yaw, tilt, speed, on_ground, ros_now):
+        if self.failure:return self.failure
+        if not all(math.isfinite(v) for v in (x,y,z,yaw,tilt,speed,ros_now)):
+            return 'nonfinite PX4 takeoff observation'
+        if ros_now < self.stamp:
+            self.failure = 'localization clock rolled back; prepare again'
+            return self.failure
+        if self.started is None:
+            if ros_now-self.stamp > 300.:return 'PX4 takeoff datum expired; prepare again'
+            a=self.anchor
+            distance=math.sqrt((x-a['x'])**2+(y-a['y'])**2+(z-a['z'])**2)
+            angle=abs((yaw-a['yaw']+math.pi)%(2*math.pi)-math.pi)
+            if not on_ground or distance>.08 or angle>.1 or tilt>.1 or speed>.1:
+                return 'aircraft moved or is not stationary on ground; prepare again'
+        return ''
+
+    def begin(self, ros_now):
+        if self.started is not None or self.failure or not 0<=ros_now-self.stamp<=300:
+            raise ValueError('PX4 takeoff datum consumed or expired; prepare again')
+        self.started=ros_now
+
+
 class TakeoffReference:
     MAX_PREPARATION_AGE = 300.
     MAX_BLIND_TIME = 8.

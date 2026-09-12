@@ -1,5 +1,6 @@
 <launch>
   <arg name="require_automatic_lease" default="false" />
+  <arg name="height_mode" default="terrain" />
   <arg name="enable_commands" default="false" />
   <arg name="mission_file" default="$(find ducted_mission)/config/mission.yaml" />
   <arg name="base_ready_topic" default="/ducted/system/ready" />
@@ -13,6 +14,7 @@
   <node pkg="ducted_mission" type="waypoint_mission.py" name="waypoint_mission"
         ns="ducted/mission" required="true" output="screen">
     <param name="require_automatic_lease" value="$(arg require_automatic_lease)" />
+    <param name="height_mode" value="$(arg height_mode)" />
     <param name="enable_commands" value="$(arg enable_commands)" />
     <param name="mission_file" value="$(arg mission_file)" />
     <remap from="base_ready" to="$(arg base_ready_topic)" />

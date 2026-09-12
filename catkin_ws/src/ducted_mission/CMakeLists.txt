@@ -30,6 +30,8 @@ catkin_install_python(PROGRAMS scripts/waypoint_mission.py scripts/automatic_fli
 install(DIRECTORY config DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_relative_reference.py)
+  catkin_add_nosetests(test/test_relative_mission.py)
   catkin_add_nosetests(test/test_automatic.py)
   catkin_add_nosetests(test/test_ground_reference.py)
   catkin_add_nosetests(test/test_adapter.py)

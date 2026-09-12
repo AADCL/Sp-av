@@ -10,6 +10,23 @@ if SPEC:
     from ducted_mission.automatic import AutomaticFlight, AutoConfig, Observation
 
 class AutomaticTests(unittest.TestCase):
+    def test_relative_mode_climbs_one_metre_without_measured_agl(self):
+        self.core=AutomaticFlight(AutoConfig(enabled=True,height_mode='takeoff_relative',takeoff_rise=1.))
+        self.o=replace(self.o,z=.4,height_measured=False,height_source='PX4_RELATIVE')
+        action=self.core.start(self.o,0)[1]
+        self.assertAlmostEqual(action.z,1.4)
+        self.ack(action)
+        self.o=replace(self.o,controller='HOLD',controller_ready=True,offboard=True)
+        self.ack(self.core.tick(self.o,.1)[0],.1)
+        self.o=replace(self.o,controller='TAKEOFF',in_air=True,on_ground=False,z=.8)
+        self.core.tick(self.o,.2)
+        self.o=replace(self.o,controller='HOLD',z=1.4)
+        self.assertEqual(self.core.tick(self.o,1)[0].command,'mission_start')
+
+    def test_relative_mode_cannot_also_request_measured_agl_target(self):
+        with self.assertRaises(ValueError):
+            AutoConfig(height_mode='takeoff_relative',takeoff_agl=1.)
+
     def setUp(self):
         self.assertIsNotNone(SPEC,'automatic flight sequence is not implemented')
         self.core=AutomaticFlight(AutoConfig(enabled=True,takeoff_rise=.8))

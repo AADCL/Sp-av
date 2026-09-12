@@ -22,8 +22,13 @@ class AutoConfig:
     tolerance: float = .1
     speed_tolerance: float = .1
     maximum_z: float = 3.
+    height_mode: str = 'terrain'
 
     def __post_init__(self):
+        if self.height_mode not in ('terrain','takeoff_relative'):
+            raise ValueError('unknown automatic height mode')
+        if self.height_mode == 'takeoff_relative' and self.takeoff_agl != 0:
+            raise ValueError('relative height mode cannot use an AGL target')
         if type(self.enabled) is not bool or self.finish not in ('hold','land','slow_land'):
             raise ValueError('enabled must be boolean; finish must be hold, land or slow_land')
         if isinstance(self.takeoff_agl,bool) or not math.isfinite(self.takeoff_agl) or self.takeoff_agl < 0:
@@ -162,7 +167,8 @@ class AutomaticFlight:
         if self.state=='WAIT_TAKEOFF':
             self.seen_takeoff |= o.controller=='TAKEOFF'
             if (self.seen_takeoff and o.in_air and o.controller=='HOLD' and o.controller_ready
-                    and o.height_measured and abs(o.z-self.target_z)<=self.config.tolerance
+                    and (o.height_measured or self.config.height_mode=='takeoff_relative')
+                    and abs(o.z-self.target_z)<=self.config.tolerance
                     and o.speed<=self.config.speed_tolerance):
                 return (self._action('mission_start','MISSION_REQUEST',now),)
         if self.state=='WAIT_MISSION':

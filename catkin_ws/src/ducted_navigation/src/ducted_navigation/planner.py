@@ -50,6 +50,7 @@ class Terrain:
     agl: float
     variance: float
     valid: bool
+    source: str = 'LIDAR'
 
 
 @dataclass(frozen=True)

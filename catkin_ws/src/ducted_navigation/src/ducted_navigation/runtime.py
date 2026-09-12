@@ -19,8 +19,12 @@ class RuntimeConfig:
     max_snapshot_translation: float = 0.05
     max_snapshot_speed_increase: float = 0.1
     max_terrain_variance: float = 0.02
+    height_mode: str = 'terrain'
+    reference_z: float = 0.0
 
     def __post_init__(self):
+        if self.height_mode not in ('terrain', 'takeoff_relative') or not finite(self.reference_z):
+            raise ValueError('invalid navigation height reference')
         values = (self.source_timeout, self.arrival_timeout, self.max_skew,
                   self.tf_wait_timeout, self.readiness_timeout)
         if any(not finite(value) or value <= 0 for value in values):
@@ -74,6 +78,8 @@ class NavigationRuntime:
 
     def __init__(self, config):
         self.config = config
+        self.required_sources = tuple(name for name in self.SOURCE_NAMES
+            if config.height_mode == 'terrain' or name not in ('terrain', 'terrain_ready'))
         self._lock = threading.RLock()
         self._records = {name: self._record() for name in self.SOURCE_NAMES}
         self._history = {name: deque(maxlen=config.history_limit)
@@ -242,6 +248,19 @@ class NavigationRuntime:
     def _matched_samples(self, ros_now, wall_now):
         cloud = self._records["cloud"]
         stamp = cloud["stamp"]
+        if self.config.height_mode == 'takeoff_relative':
+            candidates = [s for s in self._history['odom']
+                          if abs(s.stamp-stamp) <= self.config.max_skew
+                          and self._sample_fresh(s, ros_now, wall_now)]
+            if not candidates:
+                return None
+            odom = min(candidates, key=lambda s: abs(s.stamp-stamp))
+            # Private geometric constraint relative to the takeoff datum, NOT
+            # a measured floor. Never publish it as a valid TerrainHeight.
+            constraint = Terrain(self.config.reference_z,
+                odom.value[0].z-self.config.reference_z, 0., True, 'TAKEOFF_DATUM')
+            return (odom, InputSample('cloud', stamp, cloud['wall'], cloud['value']),
+                    InputSample('reference', odom.stamp, odom.wall, constraint))
         candidates = {name: [sample for sample in self._history[name]
                              if abs(sample.stamp - stamp) <= self.config.max_skew + 1e-12
                              and self._sample_fresh(sample, ros_now, wall_now)]
@@ -265,7 +284,11 @@ class NavigationRuntime:
         latest_pose, latest_velocity = self._records["odom"]["value"]
         distance = math.sqrt(sum((getattr(latest_pose, axis) - getattr(selected_pose, axis)) ** 2
                                  for axis in ("x", "y", "z")))
-        selected_terrain, latest_terrain = samples[2].value, self._records["terrain"]["value"]
+        selected_terrain = samples[2].value
+        latest_terrain = (Terrain(self.config.reference_z, latest_pose.z-self.config.reference_z,
+                                  0., True, 'TAKEOFF_DATUM')
+                          if self.config.height_mode == 'takeoff_relative'
+                          else self._records['terrain']['value'])
         # A newly observed ground change consumes the same reserved spatial
         # margin as vehicle movement; do not silently keep an old ground model.
         ground_change = max(abs(latest_terrain.ground_z - selected_terrain.ground_z),
@@ -288,7 +311,7 @@ class NavigationRuntime:
                 return None, None, "invalid current time"
             if not self._request_id or self._goal is None:
                 return None, None, "no active navigation request"
-            for name in self.SOURCE_NAMES:
+            for name in self.required_sources:
                 if not self._fresh(name, ros_now, wall_now):
                     return None, None, "%s missing or stale" % name
             samples = self._matched_samples(ros_now, wall_now)
@@ -309,7 +332,7 @@ class NavigationRuntime:
                     and token.generation == self._generation
                     and token.request_id == self._request_id
                     and all(self._fresh(name, ros_now, wall_now)
-                            for name in self.SOURCE_NAMES)
+                            for name in self.required_sources)
                     and token.samples[1].stamp == self._records["cloud"]["stamp"]
                     and all(self._sample_fresh(sample, ros_now, wall_now) for sample in token.samples)
                     and max(token.stamps) - min(token.stamps) <= self.config.max_skew + 1e-12

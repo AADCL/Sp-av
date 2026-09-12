@@ -1,6 +1,8 @@
 # Sp-av — 涵道四旋翼无人机
 
-默认重定位现支持未知位姿自动搜索（FPFH/RANSAC + ICP），同时保留 RViz 手动初值并优先响应。成功后持续地图跟踪，终端打印机体中心坐标及匹配质量。首次安装依赖请执行 `bash catkin_ws/src/ducted_localization/scripts/setup_python.sh`；四份手册已同步说明新流程。
+当前自动测试任务：以 PX4 起飞点为参考上升 1 m，沿初始机头方向前飞 3 m，悬停 5 s，然后由 PX4 原生 `AUTO.LAND` 完成降落和自动锁定。新任务不要求有效 `h_agl`，保留 EGO 实时障碍检查、人工解锁和明确启动。分终端操作见[自动飞行任务操作手册](docs/涵道四旋翼无人机_自动飞行任务操作手册_V1.0.md)。
+
+默认重定位支持未知位姿自动搜索（FPFH/RANSAC + ICP），同时保留 RViz 手动初值并优先响应。成功后持续地图跟踪。首次安装依赖请执行 `bash catkin_ws/src/ducted_localization/scripts/setup_python.sh`。
 
 
 本仓库保存涵道四旋翼无人机的ROS Noetic工作空间源码、硬件配置、地图和中文文档。工程以远程主机 `/home/nrc/catkin_ws` 的当前版本为基础，按功能模块独立启动：先运行 `base_system.launch`，再启动所需功能。
@@ -12,7 +14,7 @@
 | [详细信息表 V1.0](docs/涵道四旋翼无人机_详细信息表_V1.0.md) | 硬件、网络、外参、TF、节点、话题、参数及故障查询 |
 | [使用文档 V1.0](docs/涵道四旋翼无人机_使用文档_V1.0.md) | 基础检查、建图保存、重定位、地形、遥控、飞控、避障、航点与记录 |
 | [开发实施文档 V1.0](docs/涵道四旋翼无人机_开发实施文档_V1.0.md) | 源码组织、依赖、配置、构建、实现细节和软件验证 |
-| [自动飞行任务操作手册 V1.0](docs/涵道四旋翼无人机_自动飞行任务操作手册_V1.0.md) | 起飞一米、前飞三米、悬停缓降的分终端操作与故障处理 |
+| [自动飞行任务操作手册 V1.0](docs/涵道四旋翼无人机_自动飞行任务操作手册_V1.0.md) | 起飞一米、前飞三米、悬停与 PX4 原生降落的分终端操作 |
 
 ## 仓库结构
 
@@ -26,12 +28,14 @@ Sp-av/
 │  │  ├─ ducted_control
 │  │  ├─ ducted_navigation
 │  │  ├─ ducted_mapping
+│  │  ├─ ducted_localization
 │  │  ├─ ducted_planning
 │  │  ├─ ducted_mission
 │  │  ├─ fast_lio_sam
 │  │  └─ sfast_lio
 │  ├─ maps/
 │  ├─ save_map.sh
+│  ├─ prepare_forward_test.py
 │  └─ README.md
 └─ docs/
    ├─ 涵道四旋翼无人机_详细信息表_V1.0.md
@@ -78,7 +82,7 @@ TF：odom → camera_init → body → base_link
 
 安装位姿采用本机自带涵道程序中的平移 `[0.13, 0, 0]` m、RPY `[0.03, 0.4567, 0]` rad。MID360内部雷达—IMU平移 `[-0.011, -0.02329, 0.04412]` 是另一层内部标定，不重复用于机体安装补偿。
 
-默认 `h_agl`对应机体中心；水平姿态下机底离地高度为 `h_agl - 0.10 m`。避障使用中心AGL评估候选点净空，输出仍为绝对 `odom` 目标，不覆盖定位Z。
+默认 `terrain` 模式的 `h_agl` 对应机体中心；水平姿态下机底离地高度为 `h_agl - 0.10 m`。该模式使用中心 AGL 评估候选点净空；三米测试的 `takeoff_relative` 模式使用本次起飞参考约束高度，不生成有效雷达测高。两者都输出绝对 `odom` 目标，不覆盖定位 Z。
 
 ## 获取与构建
 
@@ -141,11 +145,13 @@ roslaunch ducted_bringup modules.launch \
 
 保存目录必须尚不存在，成功后同时得到静态 `GlobalMap.pcd`、`observed_occupancy.pcd` 和 `mapping_metadata.yaml`。后两者记录实际观测的三维空闲／占据空间，保留用于地图记录，不是 EGO 启动依赖。默认扫描留档上限 2 GiB，达到上限会明确拒绝不完整地图导出。
 
-局部规划采用官方 EGO-Planner 的 ESDF-free 回弹 B 样条优化，取消独立全局规划器。输入为实时完整点云及短时保留／预测障碍，不依赖占据地图文件。输出通过机体、制动、h_agl、时效和实际位置指令扫掠检查，交给 PX4 原生位置控制器；不发送速度或加速度前馈。默认速度0.5 m/s、垂直速度0.3 m/s、加速度0.5 m/s²。
+局部规划采用官方 EGO-Planner 的 ESDF-free 回弹 B 样条优化，取消独立全局规划器。输入为实时完整点云及短时保留／预测障碍，不依赖占据地图文件。输出通过机体、制动、所选模式的高度约束、时效和实际位置指令扫掠检查，交给 PX4 原生位置控制器；不发送速度或加速度前馈。默认速度0.5 m/s、垂直速度0.3 m/s、加速度0.5 m/s²；三米测试将前飞速度上限设为0.3 m/s。
 
 地图在建图节点运行时显式保存。在 `/home/nrc/catkin_ws` 执行 `./save_map.sh`，自动加载环境、按时间命名并显示进度；也可执行 `./save_map.sh site_c` 指定新目录名。地图保存在 `maps/` 下，已有目录不会覆盖。Ctrl+C 只退出进度显示，后台保存继续；`./save_map.sh --status` 查询状态，`./save_map.sh --wait` 重新显示进度。仅 `SUCCEEDED` 或“保存完成”表示完成。保存期间保持机体静止、基础层和建图运行，结束建图进程不会自动保存。原 Python 客户端及同步服务 `/ducted/mapping/save_map` 继续保留。仓库地图的来源和用途见 [maps/README.md](catkin_ws/maps/README.md)。
 
 ## 软件验证
+
+2026-09-12 的 PX4 相对高度与原生降落更新通过远程编译、171 项飞控/任务单元测试、7 项任务准备测试和 24 项隔离 ROS 检查。仅验证软件流程，未执行实机飞行；详情见[本次验证记录](docs/verification/2026-09-12-px4-native-landing.md)。下表保留早期版本的历史结果。
 
 ```bash
 cd /home/nrc/catkin_ws
@@ -184,38 +190,31 @@ python3 src/ducted_bringup/test/integration/verify_software.py --integration
 - 建图：`odom → camera_init → body → base_link`，不存在`map`。
 - 重定位成功且源数据新鲜：`map → odom → camera_init → body → base_link`。
 
-`camera_init → body`由独立的局部FAST-LIO发布。重定位时额外运行局部scan-to-map里程计；原`sfast_lio`负责地图匹配，只发布`/ducted/relocalization/global_odom`（map/body）且不发布TF。`world_tf_owner.py`按相同扫描时间戳配对全局与局部机体位姿，计算`T_map_odom = T_map_base × inverse(T_odom_base)`；全局校正不会重置局部FAST-LIO。数据过期或重定位无效时停止发布全局校正，`/ducted/localization/map_ready=false`。TF缓存可能短暂保留旧变换，不应只看树中是否还显示map判断定位有效。
+`camera_init → body` 由局部 FAST-LIO 发布。默认 `ducted_localization` 使用 FPFH/RANSAC 初始化和 ICP 地图跟踪，发布 `/ducted/relocalization/global_odom`（map/body）而不发布 TF；`use_global_relocalizer:=false` 才回退到旧 `sfast_lio` 后端。`world_tf_owner.py` 按同一扫描时间配对全局与局部位姿，计算 `T_map_odom = T_map_base × inverse(T_odom_base)`；全局校正不会重置局部 FAST-LIO。数据过期或重定位无效时停止发布全局校正，`/ducted/localization/map_ready=false`。TF 缓存可能暂时保留旧变换，应结合 ready 状态判断有效性。
 
 `body`是MID360内部IMU参考，不是机体中心；`body → base_link`为原安装外参的逆变换，外参数值未改。保存PCD坐标沿用建图的`camera_init`数值，加载后将该固定地图坐标命名为`map`，建图时无需发布map TF。重定位RViz的Fixed Frame使用`map`；建图使用`odom`或`camera_init`。
 
-MAVROS的ENU/NED、FLU/FRD辅助变换移至`/mavros/internal_tf_static`，其内部里程计转换仍使用这些变换，公共TF树不再出现辅助根。旧`odom → map`链已移除。重定位阶段增加一个局部FAST-LIO进程，计算负载高于原单进程方案。
+MAVROS 的 ENU/NED、FLU/FRD 辅助变换位于 `/mavros/internal_tf_static`，内部里程计转换继续使用这些变换。默认重定位运行局部 FAST-LIO 与独立地图配准工作进程。
 
-## 自动飞行组合（EGO）
+## 自动飞行组合（EGO，PX4 原生降落）
 
-“起飞至离地一米、前飞三米、悬停五秒、约 0.2 m/s 缓降”的分终端操作见[自动飞行任务操作手册](docs/涵道四旋翼无人机_自动飞行任务操作手册_V1.0.md)。该任务准备脚本要求已完成重定位。平地接地准备使用 `python3 prepare_forward_test.py --confirm-ground-contact`；无需先把飞机抬高获得雷达高度。接地参考仅允许限时垂直起飞，前飞仍要求真实有效的 `h_agl`。
+2026-09-12 更新：三米测试任务采用 `height_mode:=takeoff_relative` 和 `finish:=land`。准备时记录 PX4 局部高度 `z₀`，起飞到 `z₀ + 1.0 m`，沿初始机头方向前飞 3 m，悬停 5 s，然后请求 PX4 原生 `AUTO.LAND`。前飞速度上限 0.3 m/s。
 
-入口 `automatic_flight.launch` 组合飞控执行器、EGO、航点任务和自动协调节点。先启动基础层、所需定位及相对高度模块；外部里程计转发已由基础层自动启动。任务组合与独立飞控／导航／航点节点不能重复运行。
+下降控制、接地判断和自动锁定均由 PX4 完成。2026-09-12 只读获得的 `MPC_LAND_SPEED` 约为 0.7 m/s、`COM_DISARM_LAND` 为 2 s；实际使用飞控当前参数，本次没有改写这些参数。任务不再要求以 0.2 m/s 缓降，不会先发送自定义下降轨迹，也不按“高度五秒不变”确认落地。协调器等待新鲜的 ON_GROUND、未解锁及控制器退出反馈后报告成功。
 
-默认全部输出关闭。自动流程不调用解锁服务：操作员解锁后，收到明确启动请求才按“预发送与 OFFBOARD 接管 → 垂直起飞 → 航点任务 → 末点悬停或配置降落”执行。默认起飞目标为启动时绝对 odom Z 加 `takeoff_rise`（默认1.1 m）；指定正值 `takeoff_agl` 时，改为根据实测地面或明确确认的起飞接地参考计算离地目标；航点本身仍配置绝对 map/odom 高度，不能把 h_agl 填进绝对 Z。
-
-~~~bash
-# 启动组合仅加载节点，默认不产生飞行输出
-roslaunch ducted_bringup automatic_flight.launch \
-  mission_file:=/home/nrc/catkin_ws/src/ducted_mission/config/mission.yaml
-rostopic echo /ducted/automatic/status
-~~~
-
-实际执行需显式启用 `enable_commands:=true enable_flight_output:=true enable_navigation_output:=true geometry_confirmed:=true mapping_confirmed:=true`，并满足外部里程计、地形与遥控器自身门控；之后才可调用：
+一米是相对起飞点的上升量，不是实测离地高度。新模式不要求有效 `h_agl`；EGO 仍检查实时点云、机体包络、轨迹及数据时效。起飞参考平面只作内部高度约束，不发布成有效雷达测高，不提供随地形起伏保持离地高度的能力。机体应从平整地面起飞，落地区域保持空旷。
 
 ~~~bash
-rosservice call /ducted/automatic/start "{}"
-rosservice call /ducted/automatic/cancel "{}"
+cd /home/nrc/catkin_ws
+source devel/setup.bash
+# 基础系统、重定位和外部里程计就绪后，在未解锁、静止状态准备
+python3 prepare_forward_test.py --confirm-flat-ground && bash launch_forward_test.sh
 ~~~
 
-`finish:=hold` 是默认值；`finish:=land` 仅在航点任务成功且末点保持确认后请求 PX4 `AUTO.LAND`，并等待落地且未解锁反馈。 `finish:=slow_land` 在任务成功后执行约 0.2 m/s 的受控下降，接地确认后交给 PX4 完成降落。不会因启动、重启、数据恢复或前一次完成自行开始新任务。
+准备参考与当前 ROS run_id 绑定，300 秒有效、单次使用。检查状态与 RC，人工解锁后，在另一终端执行 `python3 prepare_forward_test.py --start`。这一步才真正开始任务。旧准备文件必须重新生成，脚本会拒绝没有 `finish=land` 的旧配置。
 
-起飞前和爬升期间检查实时点云、机体竖直通道、倾角及数据新鲜度，按扫描时间匹配位姿历史并覆盖期间运动。RC 切回手动／保持、急停、数据中断、任务失败或取消会撤销自动序列；已进入 PX4 降落的取消不反向切回 OFFBOARD。普通取消捕获当前位置保持；数据或控制权失效时停止外部控制输出，由原飞控失效逻辑处理。
+通用 `automatic_flight.launch` 仍默认 `height_mode:=terrain`、`finish:=hold`，全部输出默认关闭；上述准备脚本显式选择新模式及原生降落。旧 `terrain` 模式保留实测地面高度检查，可显式使用 `--height-mode terrain --confirm-ground-contact` 准备。自定义 `slow_land` 和 `finish:=slow_land` 仍被阻止；该限制不再影响正常的相对高度起飞、航点任务或原生降落。
 
-状态话题 `/ducted/automatic/status` 为 JSON 字符串，含 `state`、`reason`、`generation`、`target_z`、`finish`、`healthy`、`health_reason`。`/ducted/automatic/flight_lease` 与 `mission_lease` 提供0.5秒心跳约束，组合中任一授权中断都会被对应执行器检查。服务超时不重试飞行动作，`FAULT` 闭锁阻止再次自动启动。
+任务租约、手动接管、定位一致性、实时障碍、数据中断和服务超时检查继续生效。已进入 PX4 原生降落后，取消上位机任务不会自动切回 OFFBOARD。后续降落策略以实际日志为依据另行调整。
 
-原 `waypoint_mission.launch` 仍适合已经接管并悬停后的单独航点操作。官方 EGO 来源和修改记录见 `catkin_ws/src/ducted_planning/vendor/ego/PROVENANCE.md`。
+分终端操作见[自动飞行任务操作手册](docs/涵道四旋翼无人机_自动飞行任务操作手册_V1.0.md)。已有自动搜索初值和持续重定位结果见[重定位验证记录](docs/verification/2026-09-12-global-relocalization.md)。

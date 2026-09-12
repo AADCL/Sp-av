@@ -52,6 +52,25 @@ def odom_message(t=100., x=0., y=0., z=0., yaw=0., frame='odom'):
 
 
 class FlightRuntimeTest(unittest.TestCase):
+    def test_unreleased_landing_is_rejected_at_ros_boundary(self):
+        for height_mode, commands in (
+                ('terrain', ('slow_land',)),
+                ('takeoff_relative', ('slow_land',))):
+            self.node.policy.config.height_mode = height_mode
+            for command in commands:
+                response = self.node._command_callback(NS(command=command, target=pose_message()))
+                self.assertFalse(response.accepted)
+                self.assertIn('not yet compatible', response.message)
+        self.publishers['setpoint'].publish.assert_not_called()
+
+    def test_relative_native_landing_path_reaches_normal_flight_policy(self):
+        self.node.policy.config.height_mode = 'takeoff_relative'
+        self.node.policy.command = MagicMock(return_value=NS(accepted=True, message='accepted'))
+        for command in ('engage', 'takeoff', 'land'):
+            response = self.node._command_callback(NS(command=command, target=pose_message()))
+            self.assertTrue(response.accepted, response.message)
+            self.assertEqual(self.node.policy.command.call_args[0][0], command)
+
     def setUp(self):
         self.ros = MagicMock()
         self.ros.get_time.return_value = 100.

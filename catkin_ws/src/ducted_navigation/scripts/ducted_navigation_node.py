@@ -57,6 +57,8 @@ class NavigationNode:
             raise rospy.ROSInitException("navigation and terrain AGL reference must be base_link")
 
         runtime_config = RuntimeConfig(
+            height_mode=rospy.get_param('~height_mode', 'terrain'),
+            reference_z=float(rospy.get_param('~takeoff_reference_z', 0.)),
             source_timeout=float(rospy.get_param("~timeouts/source", 0.5)),
             arrival_timeout=float(rospy.get_param("~timeouts/arrival", 0.5)),
             readiness_timeout=float(rospy.get_param("~timeouts/readiness", 1.5)),
@@ -178,6 +180,8 @@ class NavigationNode:
         self._plan_event.set()
 
     def _terrain_callback(self, message):
+        if self.runtime.config.height_mode == 'takeoff_relative':
+            return
         _, ros_now, wall = self._now()
         try:
             terrain = Terrain(float(message.ground_z), float(message.agl),
@@ -205,6 +209,8 @@ class NavigationNode:
         self._readiness("external_ready", message)
 
     def _terrain_ready_callback(self, message):
+        if self.runtime.config.height_mode == 'takeoff_relative':
+            return
         self._readiness("terrain_ready", message)
 
     def _cloud_callback(self, message):

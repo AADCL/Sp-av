@@ -1,5 +1,8 @@
 <launch>
   <arg name="enable_flight_output" default="false" />
+  <arg name="height_mode" default="terrain" />
+  <arg name="takeoff_reference_z" default="0.0" />
+  <arg name="slow_land_speed" default="0.2" />
   <arg name="require_automatic_lease" default="false" />
   <arg name="start_rc_monitor" default="true" />
   <arg name="mapping_confirmed" default="false" />
@@ -24,6 +27,9 @@
     <rosparam command="load" file="$(find ducted_control)/config/flight.yaml" />
     <rosparam command="load" file="$(find ducted_bringup)/config/airframe_geometry.yaml" />
     <param name="flight/enable_flight_output" value="$(arg enable_flight_output)" />
+    <param name="flight/height_mode" value="$(arg height_mode)" />
+    <param name="flight/takeoff_reference_z" value="$(arg takeoff_reference_z)" />
+    <param name="flight/slow_land_speed" value="$(arg slow_land_speed)" />
     <param name="flight/require_automatic_lease" value="$(arg require_automatic_lease)" />
     <remap from="fcu_state" to="$(arg fcu_state_topic)" />
     <remap from="local_pose" to="$(arg local_pose_topic)" />
