@@ -31,6 +31,7 @@ install(DIRECTORY config DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_automatic.py)
+  catkin_add_nosetests(test/test_ground_reference.py)
   catkin_add_nosetests(test/test_adapter.py)
   catkin_add_nosetests(test/test_mission.py)
   catkin_add_nosetests(test/test_runtime.py)

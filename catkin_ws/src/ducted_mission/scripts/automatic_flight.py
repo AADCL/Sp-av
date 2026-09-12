@@ -9,6 +9,7 @@ from time import monotonic
 import rospy
 import tf2_ros
 from ducted_mission.automatic import AutomaticFlight, AutoConfig, Observation, matched_cloud_pose
+from ducted_mission.ground_reference import TakeoffReference, HeightReading
 from ducted_mission.automatic_services import bootstrap
 from ducted_mission.runtime import PersistentDeadlineProcess
 from ducted_mission.mission import StampedInput
@@ -60,6 +61,10 @@ class AutomaticNode:
         self.max_target_agl=(float(rospy.get_param('/ducted_navigation/planner/max_agl',2.5))-sphere
             -float(rospy.get_param('/ducted_navigation/planner/ceiling_clearance',.1))
             -float(rospy.get_param('/ducted_navigation/planner/snapshot_motion_margin',.05)))
+        reference=rospy.get_param('~ground_reference', {})
+        self.contact_reference=TakeoffReference(reference,rospy.get_param('/run_id','')) if reference else None
+        if self.contact_reference and abs(self.contact_reference.contact_agl-self.half_height)>.001:
+            raise ValueError('contact reference does not match the centered aircraft geometry')
         self.streams={};self.messages={};self.readiness={};self.last_ros=0.
         self.odom_history=deque(maxlen=100)
         self.tf=tf2_ros.Buffer();self.tf_listener=tf2_ros.TransformListener(self.tf)
@@ -106,7 +111,9 @@ class AutomaticNode:
                        and all(math.isfinite(x) for x in (p.x,p.y,p.z,q.x,q.y,q.z,q.w,v.x,v.y,v.z))
                        and abs(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w-1)<.001)
             elif name=='terrain':
-                valid=message.valid and message.header.frame_id=='odom' and all(math.isfinite(x) for x in (message.agl,message.ground_z,message.variance)) and message.variance>=0
+                valid=(message.header.frame_id=='odom' and (not message.valid or
+                    (all(math.isfinite(x) for x in (message.agl,message.ground_z,message.variance))
+                     and 0<=message.variance<=.02)))
             elif name=='rc':valid=message.valid and message.mode in ('manual','hold','command')
         except Exception:
             stamp=now;valid=False
@@ -124,24 +131,62 @@ class AutomaticNode:
         wall=monotonic();now=rospy.get_time();reason=''
         if self.activation_gate:return Observation(reason=self.activation_gate)
         if now<self.last_ros:
-            self.messages.clear();self.readiness.clear()
-            self.odom_history.clear()
+            self.messages.clear();self.readiness.clear();self.odom_history.clear()
+            if self.contact_reference:self.contact_reference.failure='localization clock rolled back; prepare again'
         self.last_ros=now
-        for name,stream in self.streams.items():
-            if name not in self.messages or not stream.fresh(wall,now):reason=name+' unavailable or stale';break
-        for name in ('/ducted/system/ready','/ducted/external_odometry/ready','/ducted/terrain/ready'):
-            value,arrival=self.readiness.get(name,(False,-math.inf))
-            limit=1.5 if name=='/ducted/system/ready' else .5
-            if not value or not 0<=wall-arrival<=limit:reason=name+' unavailable or stale'
-        if reason:return Observation(reason=reason)
+        def fresh(name):
+            return name in self.messages and self.streams[name].fresh(wall,now)
+        def ready(topic,limit=.5):
+            value,arrival=self.readiness.get(topic,(False,-math.inf))
+            return value and 0<=wall-arrival<=limit
+        critical=all(fresh(n) for n in ('fcu','landed','odom','rc','control'))
+        critical=critical and ready('/ducted/system/ready',1.5) and ready('/ducted/external_odometry/ready')
+        if critical:
+            f,rc=self.messages['fcu'],self.messages['rc']
+            critical=(f.connected and f.system_status in (3,4) and not rc.kill_switch
+                      and rc.mode in ('command','hold'))
+        for name in self.streams:
+            if name!='terrain' and not fresh(name):reason=name+' unavailable or stale';break
+        for topic,limit in (('/ducted/system/ready',1.5),('/ducted/external_odometry/ready',.5)):
+            if not ready(topic,limit):reason=topic+' unavailable or stale'
+        if reason:return Observation(reason=reason,flight_healthy=bool(critical))
         m=self.messages;f=m['fcu'];rc=m['rc'];odom=m['odom'];p=odom.pose.pose.position
         q=odom.pose.pose.orientation;v=odom.twist.twist.linear
+        speed=math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z)
+        tilt=math.acos(max(-1.,min(1.,1-2*(q.x*q.x+q.y*q.y))))
+        yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
         if not f.connected or f.system_status not in (3,4):reason='FCU not operational'
         elif rc.kill_switch or rc.mode!='command':reason='RC does not grant automatic authority'
-        # Horizontal corridor includes the rotated upper/body projection. A
-        # ground return below the present body bottom is not a climb obstacle.
-        tilt=math.acos(max(-1.,min(1.,1-2*(q.x*q.x+q.y*q.y))))
-        target=self.core.target_z if self.core.state in self.core.ACTIVE else p.z+self.core.config.takeoff_rise
+        measured=None
+        if fresh('terrain') and m['terrain'].valid and ready('/ducted/terrain/ready'):
+            t=m['terrain'];stamp=t.header.stamp.to_sec()
+            paired=matched_cloud_pose(stamp,self.odom_history,.08)
+            if paired is not None and abs(paired[2]-t.ground_z-t.agl)<=.06:
+                measured=dict(ground_z=t.ground_z,agl=t.agl,stamp=stamp)
+        height=HeightReading(False,reason='valid measured terrain required in this phase')
+        phase=self.core.state;control=m['control']
+        if (phase in ('IDLE','ENGAGING','WAIT_OFFBOARD','TAKEOFF_REQUEST','WAIT_TAKEOFF')
+                and self.contact_reference is not None):
+            if not fresh('terrain'):
+                height=HeightReading(False,reason='terrain node heartbeat unavailable or stale')
+            else:
+                height=self.contact_reference.evaluate(p.x,p.y,p.z,yaw,tilt,speed,
+                    m['landed'].landed_state==1,now,wall,measured)
+        elif measured is not None:
+            height=HeightReading(True,measured['agl'],'LIDAR',True)
+        if phase=='LANDING':
+            if control.state=='SLOW_DESCENT' and control.height_reference_valid:
+                height=HeightReading(True,source=control.height_source)
+            elif control.state in ('LAND_MODE_WAIT','LANDING'):
+                height=HeightReading(True,source='PX4_LANDING')
+            elif control.state=='DISABLED' and not f.armed and m['landed'].landed_state==1:
+                height=HeightReading(True,source='LANDED_FEEDBACK')
+        if not height.valid and not reason:reason=height.reason
+        # A contact datum grants only a bounded vertical climb. Navigation still
+        # consumes the unmodified, measured /ducted/terrain/height stream.
+        rise=(self.core.config.takeoff_agl-height.agl if self.core.config.takeoff_agl > 0
+              else self.core.config.takeoff_rise)
+        target=self.core.target_z if phase in self.core.ACTIVE else p.z+rise
         bottom=p.z-self.half_height*math.cos(tilt)-self.radius*math.sin(tilt)
         top=target+self.half_height+self.margin+self.radius*math.sin(tilt)
         radius=self.radius+self.margin+self.half_height*math.sin(tilt)
@@ -151,26 +196,33 @@ class AutomaticNode:
         if sampled is not None:
             bottom=min(bottom,sampled[2]-self.half_height-self.radius*math.sin(tilt))
             radius+=math.hypot(sampled[0]-p.x,sampled[1]-p.y)
-        corridor=(tilt<=self.max_tilt and motion<=.2
+        corridor=(tilt<=self.max_tilt and motion<=.2 and math.isfinite(top)
                   and not any(bottom+.02<z<top and (x-p.x)**2+(y-p.y)**2<radius**2 for x,y,z in points))
-        if not corridor and self.core.state in ('WAIT_OFFBOARD','WAIT_TAKEOFF','TAKEOFF_REQUEST'):
-            rospy.logwarn_throttle(1.,'Takeoff corridor unavailable: tilt=%.3f matched_motion=%.3f cloud_age=%.3f',tilt,motion,now-cloud_stamp)
-        if self.core.state in ('WAIT_TAKEOFF','TAKEOFF_REQUEST') and tilt>self.max_tilt:reason='excessive takeoff tilt'
-        mission=m['mission'];control=m['control']
+        if phase in ('WAIT_TAKEOFF','TAKEOFF_REQUEST') and tilt>self.max_tilt:reason='excessive takeoff tilt'
+        mission=m['mission']
         return Observation(healthy=not reason,reason=reason,armed=f.armed,
             on_ground=m['landed'].landed_state==1,in_air=m['landed'].landed_state==2,offboard=f.mode=='OFFBOARD',
             controller=control.state,controller_ready=control.ready,mission=mission.state,
             mission_session=mission.session_id+':'+str(mission.epoch),x=p.x,y=p.y,z=p.z,
-            speed=math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z),corridor_clear=corridor,
-            target_agl_safe=self.min_target_agl<=m['terrain'].agl+self.core.config.takeoff_rise<=self.max_target_agl)
+            speed=speed,corridor_clear=corridor,agl=height.agl,
+            height_measured=height.measured,height_source=height.source,flight_healthy=bool(critical),
+            target_agl_safe=self.min_target_agl<=height.agl+rise<=self.max_target_agl)
 
     def enqueue(self,actions):
         for action in actions:self.pending=action;self.work.set()
 
     def start(self,_request):
         with self.lock:
+            if self.contact_reference and self.contact_reference.started is not None:
+                return TriggerResponse(False,'contact reference already consumed; stop nodes and prepare again')
             accepted,action=self.core.start(self.snapshot(),monotonic())
-            if action:self.enqueue((action,))
+            if action:
+                if self.contact_reference:
+                    try:self.contact_reference.begin(rospy.get_time(),monotonic())
+                    except ValueError as error:
+                        self.enqueue(self.core.cancel(monotonic(),str(error)))
+                        return TriggerResponse(False,str(error))
+                self.enqueue((action,))
             return TriggerResponse(accepted,self.core.reason)
 
     def cancel(self,_request):
@@ -202,9 +254,15 @@ class AutomaticNode:
                 observation=self.snapshot()
                 self.enqueue(self.core.tick(observation,monotonic()))
                 self.mission_lease.publish(Bool(data=observation.healthy and self.core.state in ('MISSION_REQUEST','WAIT_MISSION','RUNNING')))
-                self.flight_lease.publish(Bool(data=observation.healthy and self.core.state in self.core.ACTIVE+('SUCCEEDED','STOPPING','ABORTED','FAULT')))
+                # Height loss cancels the task but must still allow the controller to
+                # execute HOLD while FCU, pose and RC remain healthy.
+                hold_phase=self.core.state in ('STOPPING','ABORTED','FAULT')
+                lease_health=observation.flight_healthy if hold_phase else observation.healthy
+                self.flight_lease.publish(Bool(data=lease_health and self.core.state in self.core.ACTIVE+('SUCCEEDED','STOPPING','ABORTED','FAULT')))
                 status=dict(state=self.core.state,reason=self.core.reason,generation=self.core.generation,
-                            target_z=self.core.target_z,finish=self.core.config.finish)
+                            target_z=self.core.target_z,finish=self.core.config.finish,
+                            healthy=observation.healthy,health_reason=observation.reason,
+                            height_source=observation.height_source,height_measured=observation.height_measured)
             self.pub.publish(String(data=json.dumps(status)))
 
     def shutdown(self):

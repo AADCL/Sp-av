@@ -274,7 +274,8 @@ class NavigationNode:
         return NavigateResponse(result.accepted, result.message)
 
     def _plan_once(self, ros_now, wall):
-        token, snapshot, reason = self.runtime.snapshot(ros_now, wall)
+        token, snapshot, reason = self.runtime.snapshot(
+            ros_now, wall, clock=lambda: self._now()[1:])
         if reason:
             state = "IDLE" if reason in ("no active navigation request", "controller missing or stale") else "STALE_INPUT"
             if reason != "input source skew exceeds limit":
@@ -381,7 +382,8 @@ class NavigationNode:
     def _watchdog_loop(self, period):
         while not self._watchdog_stop.wait(period):
             _, ros_now, wall = self._now()
-            _token, _snapshot, reason = self.runtime.snapshot(ros_now, wall)
+            _token, _snapshot, reason = self.runtime.snapshot(
+                ros_now, wall, clock=lambda: self._now()[1:])
             if reason:
                 state = "IDLE" if reason == "no active navigation request" else "STALE_INPUT"
                 self._publish_status(state, reason, math.inf, 0.0, 0.0)

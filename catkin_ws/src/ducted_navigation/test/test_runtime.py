@@ -42,6 +42,15 @@ def populate(state, stamp=10.0, wall=20.0):
 
 
 class NavigationRuntimeTest(unittest.TestCase):
+    def test_snapshot_resamples_time_after_a_newer_heartbeat_arrives(self):
+        state = runtime()
+        state.set_goal('r', Pose(1, 0, 1, 0), 10)
+        populate(state)
+        state.accept_readiness('external_ready', True, 10.101, 20.101)
+        self.assertEqual(state.snapshot(10.1, 20.1)[2], 'external_ready missing or stale')
+        self.assertEqual(state.snapshot(10.1, 20.1, clock=lambda: (10.102, 20.102))[2], '')
+        self.assertIn('stale', state.snapshot(10.1, 20.1, clock=lambda: (12., 22.))[2])
+
     def test_fresh_empty_cloud_is_valid_but_missing_cloud_is_stale(self):
         state = runtime()
         state.set_goal("r1", Pose(2, 0, 1, 0), 10.0)

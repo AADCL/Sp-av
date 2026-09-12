@@ -278,8 +278,12 @@ class NavigationRuntime:
         return (distance + ground_change <= self.config.max_snapshot_translation + 1e-12
                 and latest_speed <= selected_speed + self.config.max_snapshot_speed_increase + 1e-12)
 
-    def snapshot(self, ros_now, wall_now):
+    def snapshot(self, ros_now, wall_now, clock=None):
         with self._lock:
+            # A callback can accept a newer heartbeat while the caller waits
+            # for this lock. Sample here to avoid a negative receipt age.
+            if clock is not None:
+                ros_now, wall_now = clock()
             if not finite(ros_now, wall_now):
                 return None, None, "invalid current time"
             if not self._request_id or self._goal is None:

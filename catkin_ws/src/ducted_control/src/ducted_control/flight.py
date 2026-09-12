@@ -47,6 +47,8 @@ class Status:
     rc_valid: bool
     base_valid: bool
     external_valid: bool
+    height_source: str = 'UNAVAILABLE'
+    height_reference_valid: bool = False
 
 
 class FlightConfig:
@@ -64,6 +66,14 @@ class FlightConfig:
     def __init__(self, values):
         self.enable_flight_output = values.get('enable_flight_output', False) is True
         self.require_automatic_lease = values.get('require_automatic_lease', False) is True
+        for name, default in (('slow_land_speed', .2), ('slow_land_timeout', 30.),
+                              ('slow_land_contact_margin', .05)):
+            value = float(values.get(name, default))
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(name + ' must be finite and positive')
+            setattr(self, name, value)
+        if self.slow_land_speed > .3 or self.slow_land_contact_margin > .08:
+            raise ValueError('slow landing speed or contact margin exceeds supported limit')
         self.frame_id = values.get('frame_id', 'odom')
         if self.frame_id != 'odom':
             raise ValueError('flight frame_id must be odom')
@@ -88,7 +98,7 @@ class FlightConfig:
 
 
 class FlightPolicy:
-    OWNED = ('HOLD', 'TRACK', 'HOLD_GRACE', 'TAKEOFF')
+    OWNED = ('HOLD', 'TRACK', 'HOLD_GRACE', 'TAKEOFF', 'SLOW_DESCENT')
     STREAMING = ('PRESTREAM', 'MODE_WAIT') + OWNED
 
     def __init__(self, config):
@@ -104,6 +114,17 @@ class FlightPolicy:
         self._external_pose_history = deque(maxlen=100)
         self._pose_pair = {'valid': False, 'wall': None}
         self._landed = self._source_record()
+        self._terrain = self._source_record()
+        self._slow_ground = None
+        self._landing_geometry = self._source_record()
+        self._landing_samples = deque(maxlen=32)
+        self._terrain_reason = ''
+        self._height_source = 'UNAVAILABLE'
+        self._landing_ground = None
+        self._landing_contact = None
+        self._contact_since = None
+        self._contact_stamp = None
+        self._contact_samples = 0
         self._rc = self._source_record()
         self._base = {'valid': False, 'wall': None}
         self._external = {'valid': False, 'wall': None}
@@ -210,6 +231,65 @@ class FlightPolicy:
         valid = type(landed_state) is int and landed_state >= 0
         return self._source_update(self._landed, valid, stamp, ros_now, wall_now,
                                    landed_state=landed_state)
+
+    def update_landing_geometry(self, contact_agl, stamp, ros_now, wall_now):
+        return self._source_update(self._landing_geometry,
+            self._finite(contact_agl) and 0 < contact_agl <= .3,
+            stamp, ros_now, wall_now, contact_agl=contact_agl)
+
+    def update_terrain(self, valid, ground_z, agl, contact_agl, stamp, ros_now, wall_now, reason=''):
+        accepted = (valid is True and self._finite(ground_z, agl, contact_agl)
+                    and 0 <= agl <= 4. and 0 < contact_agl <= .3)
+        self._terrain_reason = str(reason) if valid is False else ''
+        accepted = self._source_update(self._terrain, accepted, stamp, ros_now, wall_now,
+                                      ground_z=ground_z, agl=agl, contact_agl=contact_agl)
+        if accepted and self.state == 'SLOW_DESCENT' and self._external_pose['valid']:
+            p = self._external_pose['pose']
+            if self._landing_samples and (stamp-self._landing_samples[-1][0] > .25
+                    or abs(ground_z-self._landing_samples[-1][2]) > .04):
+                self._landing_samples.clear()
+            if abs(p.z-ground_z-agl) <= .08:
+                self._landing_samples.append((stamp, wall_now, ground_z, p, agl))
+        return accepted
+
+    def _landing_terrain_reason(self, ros_now, wall_now):
+        self._height_source = 'UNAVAILABLE'
+        if self._fresh(self._terrain, ros_now, wall_now, self.config.telemetry_timeout):
+            if self._slow_ground is not None and abs(self._terrain['ground_z']-self._slow_ground) > .08:
+                return 'landing terrain height changed discontinuously'
+            self._landing_ground = self._terrain['ground_z']
+            self._landing_contact = self._terrain['contact_agl']
+            self._height_source = 'LIDAR'
+            return ''
+        # Only a fresh, explicit visibility failure can use the locally measured
+        # landing floor. Missing messages, timing errors and alternate surfaces
+        # must never be interpreted as the near-ground optical blind zone.
+        visibility_failures = ('insufficient candidate points', 'insufficient ground-band points',
+                               'terrain points are poorly conditioned',
+                               'insufficient terrain support at reference')
+        heartbeat = dict(self._terrain, valid=True)
+        if (self.state != 'SLOW_DESCENT' or self._slow_ground is None
+                or self._terrain_reason not in visibility_failures
+                or not self._fresh(heartbeat, ros_now, wall_now, self.config.telemetry_timeout)
+                or len(self._landing_samples) < 3
+                or not self._fresh(self._landing_geometry, ros_now, wall_now, self.config.telemetry_timeout)
+                or not self._fresh(self._external_pose, ros_now, wall_now, self.config.external_pose_timeout)):
+            return 'landing terrain unavailable or stale'
+        samples = self._landing_samples
+        stamp, wall, ground, anchor, last_agl = samples[-1]
+        p = self._external_pose['pose']
+        contact = self._landing_geometry['contact_agl']
+        agl = p.z-ground
+        if (samples[-1][0]-samples[0][0] < .2-1e-9
+                or max(s[2] for s in samples)-min(s[2] for s in samples) > .04
+                or abs(ground-self._slow_ground) > .08
+                or not 0 <= wall_now-wall <= 3. or not 0 <= ros_now-stamp <= 3.
+                or last_agl > .4 or not contact-.03 <= agl <= .35
+                or agl > last_agl+.03 or math.hypot(p.x-anchor.x,p.y-anchor.y) > .1):
+            return 'near-ground landing reference exceeded height/time/motion limits'
+        self._landing_ground, self._landing_contact = ground, contact
+        self._height_source = 'LANDING_REFERENCE'
+        return ''
 
     def update_rc(self, valid, mode, kill, land, stamp, ros_now, wall_now):
         previous_fresh = self._fresh(self._rc, ros_now, wall_now, self.config.telemetry_timeout)
@@ -408,9 +488,9 @@ class FlightPolicy:
             self._last_stream_wall = None
             self._rc_hold_captured = self._rc.get('mode') == 'hold'
             return Result(True, 'engage prestream started')
-        if command in ('hold', 'release', 'takeoff', 'land') and self.state not in self.OWNED:
+        if command in ('hold', 'release', 'takeoff', 'land', 'slow_land') and self.state not in self.OWNED:
             return Result(False, 'active OFFBOARD ownership required')
-        if command in ('hold', 'release', 'takeoff', 'land') and self._fcu.get('mode') != 'OFFBOARD':
+        if command in ('hold', 'release', 'takeoff', 'land', 'slow_land') and self._fcu.get('mode') != 'OFFBOARD':
             return Result(False, 'fresh OFFBOARD feedback required')
         if command == 'hold':
             self._generation += 1
@@ -450,6 +530,30 @@ class FlightPolicy:
             self._transition_start = wall_now
             self._settled_since = None
             return Result(True, 'takeoff accepted')
+        if command == 'slow_land':
+            gate = self._gate_reason(ros_now, wall_now)
+            if gate: return Result(False, gate)
+            if self.state not in ('HOLD', 'TRACK') or self._rc.get('mode') != 'command':
+                return Result(False, 'slow landing requires command authority in HOLD or TRACK')
+            # A new request must establish a new floor baseline.
+            self._slow_ground = None
+            self._landing_samples.clear()
+            terrain = self._landing_terrain_reason(ros_now, wall_now)
+            if terrain: return Result(False, terrain)
+            if self._landed.get('landed_state') != IN_AIR:
+                return Result(False, 'slow landing requires fresh IN_AIR feedback')
+            self._slow_ground = self._terrain['ground_z']
+            self._generation += 1
+            self.target = self._pose['pose']
+            self._last_output = self.target
+            self._last_stream_wall = wall_now
+            self._transition_start = wall_now
+            self._contact_since = None
+            self._contact_stamp = None
+            self._contact_samples = 0
+            self._target_record['valid'] = False
+            self.state, self.reason = 'SLOW_DESCENT', 'descending slowly; waiting for measured ground contact'
+            return Result(True, self.reason)
         if command == 'land':
             self._generation += 1
             self.target = self._pose['pose']
@@ -540,9 +644,11 @@ class FlightPolicy:
                                                 self._angle_delta(desired.yaw, previous.yaw)))
         if yaw > math.pi or yaw <= -math.pi:
             yaw = (yaw + math.pi) % (2 * math.pi) - math.pi
+        z_speed = (min(self.config.max_z_speed, self.config.slow_land_speed)
+                   if self.state == 'SLOW_DESCENT' else self.config.max_z_speed)
         output = Pose(previous.x + dx * scale, previous.y + dy * scale,
                       self._move_toward(previous.z, desired.z,
-                                        self.config.max_z_speed * max(0., dt)),
+                                        z_speed * max(0., dt)),
                       yaw)
         return output
 
@@ -584,7 +690,9 @@ class FlightPolicy:
                 return False
             if self.state in self.OWNED + ('LAND_MODE_WAIT',) and self._fcu.get('mode') != 'OFFBOARD':
                 return False
-            if self.state in ('TRACK', 'TAKEOFF') and self._rc.get('mode') != 'command':
+            if self.state in ('TRACK', 'TAKEOFF', 'SLOW_DESCENT') and self._rc.get('mode') != 'command':
+                return False
+            if self.state == 'SLOW_DESCENT' and self._landing_terrain_reason(ros_now, wall_now):
                 return False
             if not self._within_lead(action.pose, self._pose['pose']):
                 self._clear_ownership('final setpoint lead exceeds limit at dispatch')
@@ -735,7 +843,7 @@ class FlightPolicy:
                 self._clear_ownership('FCU left AUTO.LAND')
             return ()
 
-        if self.state in ('TRACK', 'TAKEOFF'):
+        if self.state in ('TRACK', 'TAKEOFF', 'SLOW_DESCENT'):
             if self._rc['mode'] == 'hold':
                 self._generation += 1
                 self.target = self._pose['pose']
@@ -743,6 +851,42 @@ class FlightPolicy:
                 self.state, self.reason = 'HOLD', 'RC hold captured measured pose'
                 self._target_record['valid'] = False
                 self._rc_hold_captured = True
+
+        if self.state == 'SLOW_DESCENT':
+            actual = self._pose['pose']
+            terrain_reason = self._landing_terrain_reason(ros_now, wall_now)
+            if wall_now-self._transition_start > self.config.slow_land_timeout:
+                terrain_reason = 'slow landing timed out before confirmed contact'
+            if math.hypot(actual.x-self.target.x, actual.y-self.target.y) > .2:
+                terrain_reason = 'horizontal position drifted during slow landing'
+            if terrain_reason:
+                self.command('hold', None, ros_now, wall_now)
+                self.reason = terrain_reason + '; holding; explicit action required'
+                return self._stream_actions(wall_now)
+            # Use current external altitude above the measured floor. Relating
+            # this to the FCU's current Z also avoids applying a fixed estimator
+            # translation bias to the final ground-contact target.
+            agl = self._external_pose['pose'].z-self._landing_ground
+            contact_agl = self._landing_contact
+            endpoint = actual.z-(agl-contact_agl+self.config.slow_land_contact_margin)
+            endpoint = max(self.config.min_z, min(actual.z, endpoint))
+            self.target = Pose(self.target.x, self.target.y, endpoint, self.target.yaw)
+            contact = (self._landed['landed_state'] == ON_GROUND
+                       and -.03 <= agl-contact_agl <= .05)
+            if contact:
+                if self._contact_since is None: self._contact_since = wall_now
+                if self._contact_stamp != self._landed['stamp']:
+                    self._contact_samples += 1
+                    self._contact_stamp = self._landed['stamp']
+                if wall_now-self._contact_since >= .3 and self._contact_samples >= 3:
+                    target, previous = self.target, self._last_output
+                    self.command('land', None, ros_now, wall_now)
+                    # Keep the gentle contact target until PX4 acknowledges
+                    # ownership; do not jump back up to the measured height.
+                    self.target, self._last_output = target, previous
+                    return self.tick(ros_now, wall_now)
+            else:
+                self._contact_since, self._contact_stamp, self._contact_samples = None, None, 0
 
         if self.state == 'TRACK':
             target_fresh = (self._target_record['valid']
@@ -785,4 +929,6 @@ class FlightPolicy:
         ready = (self.state in self.OWNED and not self._gate_reason(
             self._last_ros, self._last_wall) and self._fcu.get('mode') == 'OFFBOARD')
         return Status(self.state, self.reason, bool(ready), self.request_id, self.target,
-                      valid['fcu'], valid['pose'], valid['rc'], valid['base'], valid['external'])
+                      valid['fcu'], valid['pose'], valid['rc'], valid['base'], valid['external'],
+                      self._height_source if self.state == 'SLOW_DESCENT' else 'UNAVAILABLE',
+                      bool(ready and self.state == 'SLOW_DESCENT' and self._height_source != 'UNAVAILABLE'))

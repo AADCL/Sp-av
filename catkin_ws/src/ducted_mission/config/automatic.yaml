@@ -1,5 +1,7 @@
 enable_commands: false
 takeoff_rise: 1.1
+# Positive takeoff_agl overrides rise using measured center-to-ground height.
+takeoff_agl: 0.0
 finish: hold
 transition_timeout: 8.0
 takeoff_timeout: 25.0

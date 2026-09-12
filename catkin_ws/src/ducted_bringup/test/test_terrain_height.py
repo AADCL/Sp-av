@@ -290,7 +290,7 @@ class TerrainLaunchContractTest(unittest.TestCase):
         params = {p.attrib["name"]: p.attrib.get("value") for p in node.findall("param")}
         self.assertEqual(args["base_ready_topic"], "/ducted/system/ready")
         self.assertEqual(args["odom_topic"], "/ducted/localization/odom")
-        self.assertEqual(args["cloud_topic"], "/ducted/relocalization/registered_scan")
+        self.assertEqual(args["cloud_topic"], "/ducted/localization/cloud_registered")
         self.assertEqual(args["reference_confirmed"], "false")
         self.assertEqual(params["require_base_ready"], "true")
         self.assertEqual(params["reference_confirmed"], "$(arg reference_confirmed)")
@@ -299,7 +299,7 @@ class TerrainLaunchContractTest(unittest.TestCase):
 
     def test_config_declares_gravity_frame_body_reference_and_staleness(self):
         config = yaml.safe_load((PKG / "config" / "terrain_height.yaml").read_text())
-        self.assertEqual(config["frames"]["map"], "map")
+        self.assertEqual(config["frames"]["map"], "camera_init")
         self.assertEqual(config["frames"]["output"], "odom")
         self.assertEqual(config["frames"]["base"], "base_link")
         self.assertEqual(config["agl_reference"], "base_link")

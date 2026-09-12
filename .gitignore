@@ -4,6 +4,7 @@
 **/install/
 **/logs/
 **/.catkin_tools/
+**/.venv-localization/
 catkin_ws/src/CMakeLists.txt
 
 # Local caches and temporary captures

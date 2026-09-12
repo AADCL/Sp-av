@@ -13,6 +13,7 @@ def matched_cloud_pose(stamp, history, max_skew=.05):
 class AutoConfig:
     enabled: bool = False
     takeoff_rise: float = 1.1
+    takeoff_agl: float = 0.0
     finish: str = 'hold'
     transition_timeout: float = 8.
     takeoff_timeout: float = 25.
@@ -23,8 +24,10 @@ class AutoConfig:
     maximum_z: float = 3.
 
     def __post_init__(self):
-        if type(self.enabled) is not bool or self.finish not in ('hold','land'):
-            raise ValueError('enabled must be boolean; finish must be hold or land')
+        if type(self.enabled) is not bool or self.finish not in ('hold','land','slow_land'):
+            raise ValueError('enabled must be boolean; finish must be hold, land or slow_land')
+        if isinstance(self.takeoff_agl,bool) or not math.isfinite(self.takeoff_agl) or self.takeoff_agl < 0:
+            raise ValueError('takeoff_agl must be finite and nonnegative')
         for name in ('takeoff_rise','transition_timeout','takeoff_timeout','mission_timeout',
                      'landing_timeout','tolerance','speed_tolerance','maximum_z'):
             v=getattr(self,name)
@@ -50,6 +53,10 @@ class Observation:
     speed: float = 0.
     corridor_clear: bool = False
     target_agl_safe: bool = True
+    agl: float = 0.
+    height_measured: bool = True
+    height_source: str = 'UNAVAILABLE'
+    flight_healthy: bool = False
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,7 @@ class AutomaticFlight:
 
     def start(self,o,now):
         reason=''
+        rise = self.config.takeoff_agl-o.agl if self.config.takeoff_agl > 0 else self.config.takeoff_rise
         if not self.config.enabled:reason='automatic commands disabled'
         elif self.state not in ('IDLE','SUCCEEDED','ABORTED'):reason='sequence active or fault latched'
         elif not o.healthy:reason=o.reason
@@ -92,11 +100,12 @@ class AutomaticFlight:
         elif not o.corridor_clear:reason='takeoff corridor is not clear'
         elif not o.target_agl_safe:reason='takeoff height cannot enter the configured navigation AGL envelope'
         elif not all(math.isfinite(v) for v in (o.x,o.y,o.z,o.speed,now)):reason='invalid starting observation'
-        elif o.z+self.config.takeoff_rise>self.config.maximum_z:reason='takeoff target exceeds absolute height limit'
+        elif not math.isfinite(rise) or rise < .2:reason='takeoff target must be at least 0.2 m above current height'
+        elif o.z+rise>self.config.maximum_z:reason='takeoff target exceeds absolute height limit'
         if reason:
             self.reason=reason;return False,None
         self.generation+=1;self.fault_pending=False
-        self.target_z=o.z+self.config.takeoff_rise
+        self.target_z=o.z+rise
         self.initial_session=o.mission_session;self.active_session='';self.seen_takeoff=False
         self.reason='prestream and OFFBOARD requested'
         return True,self._action('engage','ENGAGING',now)
@@ -125,7 +134,7 @@ class AutomaticFlight:
             self.fault_pending=command!='stop'
             return
         self.state={'engage':'WAIT_OFFBOARD','takeoff':'WAIT_TAKEOFF',
-                    'mission_start':'WAIT_MISSION','land':'LANDING','stop':'ABORTED'}[command]
+                    'mission_start':'WAIT_MISSION','land':'LANDING','slow_land':'LANDING','stop':'ABORTED'}[command]
         if command=='stop':self.reason+='; sequence stopped; explicit restart required'
 
     def tick(self,o,now):
@@ -153,7 +162,8 @@ class AutomaticFlight:
         if self.state=='WAIT_TAKEOFF':
             self.seen_takeoff |= o.controller=='TAKEOFF'
             if (self.seen_takeoff and o.in_air and o.controller=='HOLD' and o.controller_ready
-                    and abs(o.z-self.target_z)<=self.config.tolerance and o.speed<=self.config.speed_tolerance):
+                    and o.height_measured and abs(o.z-self.target_z)<=self.config.tolerance
+                    and o.speed<=self.config.speed_tolerance):
                 return (self._action('mission_start','MISSION_REQUEST',now),)
         if self.state=='WAIT_MISSION':
             if o.mission_session!=self.initial_session and o.mission in ('DISPATCHING','RUNNING','DWELLING','SUCCEEDED'):
@@ -164,8 +174,11 @@ class AutomaticFlight:
             if o.mission in ('PAUSED','FAILED','CANCELED'):
                 return self.cancel(now,'waypoint mission '+o.mission.lower())
             if o.mission=='SUCCEEDED' and o.controller=='HOLD' and o.controller_ready:
-                if self.config.finish=='land':return (self._action('land','LAND_REQUEST',now),)
+                if self.config.finish in ('land','slow_land'):
+                    return (self._action(self.config.finish,'LAND_REQUEST',now),)
                 self.state='SUCCEEDED';self.reason='waypoints complete; holding final position'
         if self.state=='LANDING' and o.on_ground and not o.armed and o.controller=='DISABLED':
             self.state='SUCCEEDED';self.reason='landed and disarmed feedback confirmed'
+        elif self.state=='LANDING' and o.controller=='HOLD' and now-self.entered>.5:
+            return self.cancel(now,'landing controller stopped descent; explicit action required')
         return ()

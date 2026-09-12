@@ -61,6 +61,23 @@ class AutomaticTests(unittest.TestCase):
         self.o=replace(self.o,on_ground=True,in_air=False,armed=False,controller='DISABLED')
         self.core.tick(self.o,3);self.assertEqual('SUCCEEDED',self.core.state)
 
+    def test_slow_landing_requests_controlled_descent_after_final_hold(self):
+        self.core=AutomaticFlight(AutoConfig(enabled=True,finish='slow_land',takeoff_rise=.8))
+        self.climb();self.o=replace(self.o,mission='SUCCEEDED')
+        action=self.core.tick(self.o,2)[0]
+        self.assertEqual('slow_land',action.command)
+        self.ack(action,2)
+        self.o=replace(self.o,controller='SLOW_DESCENT',z=.7)
+        self.assertEqual((),self.core.tick(self.o,2.2))
+        self.assertEqual('LANDING',self.core.state)
+
+    def test_agl_takeoff_uses_measured_ground_with_nonzero_odom_origin(self):
+        self.core=AutomaticFlight(AutoConfig(enabled=True,takeoff_agl=1.))
+        self.o=replace(self.o,z=2.15,agl=.15)
+        action=self.core.start(self.o,0)[1]
+        self.assertIsNotNone(action)
+        self.assertAlmostEqual(action.z,3.)
+
     def test_old_mission_success_does_not_finish_new_flight(self):
         self.o=replace(self.o,mission='SUCCEEDED',mission_session='old')
         self.climb()
@@ -114,5 +131,17 @@ class AutomaticTests(unittest.TestCase):
         points=[(10.,(0.,0.,.4)),(10.18,(0.,0.,.45))]
         self.assertEqual((0.,0.,.4),automatic.matched_cloud_pose(10.,points))
         self.assertIsNone(automatic.matched_cloud_pose(9.,points))
+
+    def test_arriving_at_takeoff_target_without_measured_height_cannot_start_mission(self):
+        self.assertIn('height_measured',Observation.__dataclass_fields__)
+        a=self.core.start(self.o,0)[1];self.ack(a)
+        self.o=replace(self.o,controller='HOLD',controller_ready=True,offboard=True)
+        a=self.core.tick(self.o,.1)[0];self.ack(a,.1)
+        self.o=replace(self.o,controller='TAKEOFF',on_ground=False,in_air=True,z=.5,
+                       height_measured=False)
+        self.core.tick(self.o,.2)
+        self.o=replace(self.o,controller='HOLD',z=.95,speed=0.)
+        self.assertEqual((),self.core.tick(self.o,1))
+        self.assertEqual('WAIT_TAKEOFF',self.core.state)
 
 if __name__=='__main__':unittest.main()

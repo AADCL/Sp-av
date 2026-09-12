@@ -2,7 +2,7 @@
   <arg name="base_ready_topic" default="/ducted/system/ready" />
   <arg name="base_ready_timeout" default="15.0" />
   <arg name="odom_topic" default="/ducted/localization/odom" />
-  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <arg name="cloud_topic" default="/ducted/localization/cloud_registered" />
   <arg name="reference_confirmed" default="false" />
   <arg name="geometry_file" default="$(find ducted_bringup)/config/airframe_geometry.yaml" />
 

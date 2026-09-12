@@ -22,6 +22,7 @@
   <node pkg="ducted_control" type="flight_controller.py" name="flight_controller"
         required="true" output="screen">
     <rosparam command="load" file="$(find ducted_control)/config/flight.yaml" />
+    <rosparam command="load" file="$(find ducted_bringup)/config/airframe_geometry.yaml" />
     <param name="flight/enable_flight_output" value="$(arg enable_flight_output)" />
     <param name="flight/require_automatic_lease" value="$(arg require_automatic_lease)" />
     <remap from="fcu_state" to="$(arg fcu_state_topic)" />

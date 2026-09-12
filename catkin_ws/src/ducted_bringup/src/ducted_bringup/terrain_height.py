@@ -354,6 +354,24 @@ def transform_point(point, translation, quaternion):
     return tuple(rotated[index] + translation[index] for index in range(3))
 
 
+def transform_cloud_points(points, translation, quaternion):
+    """Transform a scan without revalidating the same extrinsic for every point."""
+    import numpy as np
+    tx, ty, tz = _finite_tuple(translation, 3, "translation")
+    x, y, z, w = normalize_quaternion(quaternion)
+    data = np.asarray(list(points), dtype=float)
+    if not data.size:
+        return ()
+    if data.ndim != 2 or data.shape[1] < 3:
+        raise ValueError('cloud must contain XYZ points')
+    px, py, pz = data[:, 0], data[:, 1], data[:, 2]
+    transformed = np.column_stack((
+        (1-2*(y*y+z*z))*px + 2*(x*y-w*z)*py + 2*(x*z+w*y)*pz + tx,
+        2*(x*y+w*z)*px + (1-2*(x*x+z*z))*py + 2*(y*z-w*x)*pz + ty,
+        2*(x*z-w*y)*px + 2*(y*z+w*x)*py + (1-2*(x*x+y*y))*pz + tz))
+    return transformed.tolist()
+
+
 def validate_body_vertices(vertices):
     try:
         result = tuple(

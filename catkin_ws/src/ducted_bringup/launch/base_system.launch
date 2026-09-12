@@ -2,6 +2,7 @@
   <arg name="start_mavros" default="true" />
   <arg name="start_livox" default="true" />
   <arg name="start_health_monitor" default="true" />
+  <arg name="start_external_odometry" default="true" />
   <arg name="fcu_url" default="/dev/ttyTHS0:921600" />
   <arg name="gcs_url" default="" />
   <arg name="respawn_mavros" default="true" />
@@ -28,4 +29,8 @@
       <param name="require_livox" value="$(arg start_livox)" />
     </node>
   </group>
+  <!-- Waits for base readiness and valid body odometry; localization owns TF. -->
+  <include if="$(arg start_external_odometry)" file="$(find ducted_bringup)/launch/external_odometry.launch">
+    <arg name="input_contract_confirmed" value="true" />
+  </include>
 </launch>
