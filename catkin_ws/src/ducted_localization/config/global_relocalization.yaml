@@ -1,0 +1,21 @@
+# Unknown-pose initialization and continuous tracking. Map axes are preserved.
+auto_initialize: true
+timeout: 60.0
+submap_duration: 3.0
+min_submap_frames: 5
+min_scan_points: 500
+max_submap_points: 180000
+coarse_voxel: 0.40
+fine_voxel: 0.10
+ransac_iterations: 100000
+min_fitness: 0.55
+max_rmse: 0.30
+required_confirmations: 2
+max_translation: 0.50
+max_rotation: 0.35
+tracking_period: 1.0
+tracking_timeout: 3.0
+failure_limit: 3
+input_timeout: 0.50
+job_timeout: 20.0
+worker_threads: 2

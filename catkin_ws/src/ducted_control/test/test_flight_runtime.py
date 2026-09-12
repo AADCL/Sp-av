@@ -48,7 +48,7 @@ def blank_pose():
 
 def odom_message(t=100., x=0., y=0., z=0., yaw=0., frame='odom'):
     message = pose_message(t, x, y, z, yaw, frame)
-    return NS(header=message.header, pose=NS(pose=message.pose))
+    return NS(header=message.header, child_frame_id='base_link', pose=NS(pose=message.pose))
 
 
 class FlightRuntimeTest(unittest.TestCase):
@@ -72,7 +72,7 @@ class FlightRuntimeTest(unittest.TestCase):
             FlightSetpoint=object,
             FlightControlStatus=lambda: NS(header=NS(), state='', reason='', ready=False,
                                             request_id='', target=blank_pose()),
-            RCState=object)
+            RCState=object, TerrainHeight=object)
         services = NS(
             FlightCommand=object,
             FlightCommandResponse=lambda accepted=False, message='': NS(
@@ -119,6 +119,20 @@ class FlightRuntimeTest(unittest.TestCase):
         self.ros.ServiceProxy.assert_not_called()
         self.assertFalse(self.publishers['ready'].publish.call_args[0][0].data)
         self.assertEqual(self.publishers['status'].publish.call_args[0][0].state, 'DISABLED')
+
+    def test_landing_terrain_requires_correct_reference_geometry_and_fresh_attitude(self):
+        self.assertTrue(hasattr(self.node, '_terrain_callback'))
+        self.node.terrain_reference = 'base_link'
+        self.node.body_vertices = [(-.3,-.35,-.1),(.3,.35,.1)]
+        self.feed_valid()
+        msg = NS(header=NS(stamp=stamp(100.),frame_id='odom'),
+                 valid=True,ground_z=-.1,agl=.1,variance=.001)
+        self.node._terrain_callback(msg)
+        self.assertTrue(self.node.policy._terrain['valid'])
+        self.assertAlmostEqual(self.node.policy._terrain['contact_agl'],.1)
+        msg.header.stamp = stamp(100.01); msg.header.frame_id='map'
+        self.node._terrain_callback(msg)
+        self.assertFalse(self.node.policy._terrain['valid'])
 
     def test_newer_invalid_pose_clears_cached_pose_availability(self):
         self.feed_valid()

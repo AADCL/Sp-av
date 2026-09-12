@@ -2,6 +2,7 @@
 import math
 import sys
 import threading
+from collections import deque
 from dataclasses import dataclass
 from time import monotonic
 
@@ -19,6 +20,7 @@ from ducted_bringup.terrain_height import (
     lowest_body_z,
     normalize_quaternion,
     transform_point,
+    transform_cloud_points,
     validate_body_vertices,
 )
 
@@ -37,12 +39,15 @@ class CloudSnapshot:
     odom_stamp: object
     odom_stamp_ns: int
     odom_generation: int
+    odom_received_wall: float
     revocation_generation: int
 
 
 class TerrainHeightNode:
     def __init__(self):
         self.lock = threading.RLock()
+        self.odom_condition = threading.Condition(self.lock)
+        self.odom_history = deque(maxlen=32)
         self.stop_event = threading.Event()
         self.map_frame = rospy.get_param("~frames/map", "map")
         self.output_frame = rospy.get_param("~frames/output", "odom")
@@ -191,6 +196,8 @@ class TerrainHeightNode:
         threading.Thread(target=run, daemon=True).start()
 
     def _publish(self, estimate, stamp):
+        if not estimate.valid:
+            rospy.logwarn_throttle(2.0, "Terrain height invalid: %s", estimate.reason)
         message = TerrainHeight()
         message.header.stamp = stamp
         message.header.frame_id = self.output_frame
@@ -198,6 +205,7 @@ class TerrainHeightNode:
         message.agl = estimate.agl
         message.variance = estimate.variance
         message.valid = estimate.valid
+        message.reason = estimate.reason
         self.height_pub.publish(message)
         self.ready_pub.publish(estimate.valid)
         self.ready = estimate.valid
@@ -205,7 +213,6 @@ class TerrainHeightNode:
             self.last_watchdog_reason = None
 
     def _invalid(self, reason, stamp=None):
-        rospy.logwarn_throttle(2.0, "Terrain height invalid: %s", reason)
         self._publish(
             TerrainEstimate(math.nan, math.nan, math.inf, False, reason),
             stamp if stamp is not None else rospy.Time.now(),
@@ -239,6 +246,8 @@ class TerrainHeightNode:
         return stamp_ns
 
     def _clear_odom(self):
+        self.odom_history.clear()
+        self.revocation_generation += 1
         self.odom = None
         self.odom_received_wall = None
         self.accepted_odom_stamp = None
@@ -276,6 +285,8 @@ class TerrainHeightNode:
             self.odom_received_wall = monotonic()
             self.accepted_odom_stamp = message.header.stamp
             self.accepted_odom_stamp_ns = stamp_ns
+            self.odom_history.append((message, self.odom_received_wall, stamp_ns))
+            self.odom_condition.notify_all()
 
     def _base_gate_open(self, now_wall):
         return (
@@ -355,10 +366,7 @@ class TerrainHeightNode:
             raw_points = point_cloud2.read_points(
                 snapshot.message, field_names=("x", "y", "z"), skip_nans=True
             )
-            points = (
-                transform_point(point[:3], map_translation, map_orientation)
-                for point in raw_points
-            )
+            points = transform_cloud_points(raw_points, map_translation, map_orientation)
             estimate = self.estimator.estimate(
                 points, base_position[0], base_position[1], reference_z
             )
@@ -371,6 +379,11 @@ class TerrainHeightNode:
         with self.lock:
             if self._recheck_snapshot(snapshot):
                 self._publish(estimate, snapshot.stamp)
+
+    def _matching_odom(self, cloud_stamp_ns):
+        candidates = [sample for sample in self.odom_history
+                      if abs(sample[2] - cloud_stamp_ns) <= self.odom_cloud_skew * 1e9]
+        return min(candidates, key=lambda sample: abs(sample[2] - cloud_stamp_ns)) if candidates else None
 
     def _prepare_cloud(self, message):
         self.cloud_generation += 1
@@ -403,6 +416,22 @@ class TerrainHeightNode:
                 "base ready heartbeat is unavailable or stale", message.header.stamp
             )
             return
+        generation = self.cloud_generation
+        # ROS topics arrive independently. Give the matching odometry a bounded
+        # opportunity to arrive without holding up the watchdog or callbacks.
+        if self._matching_odom(stamp_ns) is None and self.accepted_odom_stamp_ns < stamp_ns:
+            self.odom_condition.wait_for(
+                lambda: (self._matching_odom(stamp_ns) is not None
+                         or self.accepted_odom_stamp_ns >= stamp_ns
+                         or self.cloud_generation != generation
+                         or self.stop_event.is_set()),
+                timeout=self.tf_timeout)
+        if generation != self.cloud_generation or self.stop_event.is_set():
+            return
+        now_wall = monotonic()
+        if not self._base_gate_open(now_wall):
+            self._invalid("base ready heartbeat is unavailable or stale", message.header.stamp)
+            return
         if self.odom is None or self.odom_received_wall is None:
             self._invalid("odometry unavailable", message.header.stamp)
             return
@@ -415,7 +444,16 @@ class TerrainHeightNode:
             )
             if odom_stamp_ns != self.accepted_odom_stamp_ns:
                 raise ValueError("odometry timestamp changed after acceptance")
-            skew = abs((message.header.stamp - self.accepted_odom_stamp).to_sec())
+            matched = self._matching_odom(stamp_ns)
+            if matched is None:
+                skew = math.inf
+            else:
+                matched_odom, matched_wall, matched_ns = matched
+                if self._stamp_ns(matched_odom.header.stamp, "paired odometry") != matched_ns:
+                    raise ValueError("paired odometry timestamp changed after acceptance")
+                if now_wall - matched_wall > self.odom_timeout:
+                    raise ValueError("paired odometry arrival is stale")
+                skew = abs(stamp_ns - matched_ns) * 1e-9
         except (AttributeError, TypeError, ValueError) as error:
             self.odom_generation += 1
             self._clear_odom()
@@ -431,10 +469,11 @@ class TerrainHeightNode:
             stamp=message.header.stamp,
             stamp_ns=stamp_ns,
             cloud_generation=self.cloud_generation,
-            odom=self.odom,
-            odom_stamp=self.accepted_odom_stamp,
-            odom_stamp_ns=self.accepted_odom_stamp_ns,
+            odom=matched_odom,
+            odom_stamp=matched_odom.header.stamp,
+            odom_stamp_ns=matched_ns,
             odom_generation=self.odom_generation,
+            odom_received_wall=matched_wall,
             revocation_generation=self.revocation_generation,
         )
 
@@ -457,10 +496,9 @@ class TerrainHeightNode:
     def _snapshot_current(self, snapshot):
         return (
             snapshot.cloud_generation == self.cloud_generation
-            and snapshot.odom_generation == self.odom_generation
             and snapshot.revocation_generation == self.revocation_generation
-            and snapshot.odom is self.odom
-            and snapshot.odom_stamp_ns == self.accepted_odom_stamp_ns
+            and any(sample[0] is snapshot.odom and sample[2] == snapshot.odom_stamp_ns
+                    for sample in self.odom_history)
             and snapshot.stamp_ns == self.accepted_cloud_stamp_ns
         )
 
@@ -479,6 +517,7 @@ class TerrainHeightNode:
         if (
             self.odom_received_wall is None
             or now_wall - self.odom_received_wall > self.odom_timeout
+            or now_wall - snapshot.odom_received_wall > self.odom_timeout
         ):
             self._invalid("odometry arrival is stale", snapshot.stamp)
             return False

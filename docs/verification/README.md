@@ -14,5 +14,7 @@
 | [真实传感器回放](mapping_replay_result.json) | 377帧配准点云和377帧里程计 |
 | [几何加载](airframe_geometry_audit.json) | 两模块共用八顶点 |
 | [外参展开](active_extrinsics_audit.json) | 实际launch加载的外参与几何 |
+| [近地起降修正（2026-09-11）](2026-09-11-near-ground.md) | 129 项针对性测试；完整任务 23 项及测高始终失效场景 16 项通过 |
+| [自动全局重定位（2026-09-12）](2026-09-12-global-relocalization.md) | 7 项单元、实际 Open3D 配准、14 项隔离 ROS；实机自动及手动初始化和持续跟踪通过 |
 
 隔离测试使用独立ROS主站和模拟飞控，回放使用已记录传感器数据；这些记录不等同于真实飞行性能。

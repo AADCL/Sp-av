@@ -7,7 +7,7 @@ import threading
 from time import monotonic
 
 import rospy
-from ducted_msgs.msg import FlightControlStatus, FlightSetpoint, RCState
+from ducted_msgs.msg import FlightControlStatus, FlightSetpoint, RCState, TerrainHeight
 from ducted_msgs.srv import FlightCommand, FlightCommandResponse
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import ExtendedState, State
@@ -26,6 +26,9 @@ class FlightController:
             raise ValueError('loop_hz must be finite and between 20 and 100 Hz')
         self.policy = FlightPolicy(FlightConfig(raw_config))
         self.lock = threading.RLock()
+        self.body_vertices = rospy.get_param('~body_vertices', [])
+        self.terrain_reference = rospy.get_param('/terrain_height/agl_reference', '')
+        self._attitude = None
         self.stop_event = threading.Event()
         self.mode_queue = Queue(maxsize=1)
         self.mode_client = None
@@ -48,6 +51,8 @@ class FlightController:
             'external_ready', Bool, self._external_callback, queue_size=1)
         self.target_sub = rospy.Subscriber(
             'target', FlightSetpoint, self._target_callback, queue_size=1)
+        self.terrain_sub = rospy.Subscriber('/ducted/terrain/height', TerrainHeight,
+                                           self._terrain_callback, queue_size=1)
         self.automatic_sub = rospy.Subscriber(
             '/ducted/automatic/flight_lease', Bool, self._automatic_callback, queue_size=1)
         self.command_srv = rospy.Service('command', FlightCommand, self._command_callback)
@@ -115,13 +120,55 @@ class FlightController:
 
     def _external_pose_callback(self, message):
         pose = self._pose_from_message(message.pose.pose)
-        if str(message.header.frame_id) != self.policy.config.frame_id:
+        if (str(message.header.frame_id) != self.policy.config.frame_id
+                or getattr(message, 'child_frame_id', '') != 'base_link'):
             pose = None
         if pose is None:
             pose = Pose(math.nan, math.nan, math.nan, math.nan)
         with self.lock:
             now, wall = rospy.get_time(), monotonic()
-            self.policy.update_external_pose(pose, self._stamp(message), now, wall)
+            accepted = self.policy.update_external_pose(pose, self._stamp(message), now, wall)
+            q = message.pose.pose.orientation
+            self._attitude = (self._stamp(message), q.x, q.y, q.z, q.w) if accepted else None
+            contact = self._contact_height(q) if accepted else math.nan
+            self.policy.update_landing_geometry(contact,self._stamp(message),now,wall)
+
+    def _contact_height(self, q):
+        x,y,z,w=q.x,q.y,q.z,q.w
+        if (not all(math.isfinite(a) for a in (x,y,z,w))
+                or 1-2*(x*x+y*y) < math.cos(.2)
+                or not self.body_vertices or any(len(v)!=3 or not all(math.isfinite(a) for a in v)
+                                                for v in self.body_vertices)):
+            return math.nan
+        row=(2*(x*z-w*y),2*(y*z+w*x),1-2*(x*x+y*y))
+        return -min(sum(row[i]*v[i] for i in range(3)) for v in self.body_vertices)
+
+    def _terrain_callback(self, message):
+        with self.lock:
+            now, wall = rospy.get_time(), monotonic()
+            valid, contact = False, 0.
+            try:
+                stamp = self._stamp(message)
+                valid = (message.valid and message.header.frame_id == 'odom'
+                         and self.terrain_reference == 'base_link'
+                         and 0 <= message.variance <= .02 and self._attitude is not None)
+                if valid:
+                    attitude_stamp, x, y, z, w = self._attitude
+                    valid = (abs(stamp-attitude_stamp) <= .08
+                             and -.05 <= now-attitude_stamp <= .5
+                             and 1-2*(x*x+y*y) >= math.cos(.2))
+                    row = (2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y))
+                    if not self.body_vertices or any(len(v)!=3 or not all(math.isfinite(a) for a in v)
+                                                     for v in self.body_vertices):
+                        valid = False
+                    else:
+                        contact = -min(sum(row[i]*v[i] for i in range(3)) for v in self.body_vertices)
+                reason = getattr(message,'reason','') if (message.valid is False
+                    and message.header.frame_id=='odom' and self.terrain_reference=='base_link') else ''
+                self.policy.update_terrain(valid, message.ground_z, message.agl, contact,
+                                           stamp, now, wall, reason=reason)
+            except (AttributeError, TypeError, ValueError):
+                self.policy.update_terrain(False, 0., 0., 0., self._stamp(message), now, wall)
 
     def _rc_callback(self, message):
         with self.lock:
@@ -185,6 +232,8 @@ class FlightController:
         message.reason = status.reason
         message.ready = status.ready
         message.request_id = status.request_id
+        message.height_source = status.height_source
+        message.height_reference_valid = status.height_reference_valid
         self._write_pose(message.target, status.target)
         return message
 

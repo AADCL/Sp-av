@@ -1,5 +1,5 @@
 <launch>
-  <!-- Base, localization, external odometry and terrain must already be ready. -->
+  <!-- Base and localization must be ready. Height is measured or explicitly initialized for bounded takeoff. -->
   <arg name="enable_commands" default="false" />
   <arg name="enable_flight_output" default="false" />
   <arg name="enable_navigation_output" default="false" />
@@ -8,6 +8,8 @@
   <arg name="start_rc_monitor" default="true" />
   <arg name="finish" default="hold" />
   <arg name="takeoff_rise" default="1.1" />
+  <arg name="takeoff_agl" default="0.0" />
+  <arg name="ground_reference_file" default="" />
   <arg name="mission_file" default="$(find ducted_mission)/config/mission.yaml" />
   <arg name="navigation_config" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
   <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
@@ -32,6 +34,8 @@
     <arg name="enable_commands" value="$(arg enable_commands)" />
     <arg name="finish" value="$(arg finish)" />
     <arg name="takeoff_rise" value="$(arg takeoff_rise)" />
+    <arg name="takeoff_agl" value="$(arg takeoff_agl)" />
+    <arg name="ground_reference_file" value="$(arg ground_reference_file)" />
     <arg name="cloud_topic" value="$(arg cloud_topic)" />
   </include>
 </launch>

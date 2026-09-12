@@ -5,6 +5,7 @@ import pathlib
 import sys
 import threading
 import unittest
+import yaml
 from types import SimpleNamespace as NS
 from unittest.mock import MagicMock, patch
 
@@ -92,6 +93,69 @@ def flat_points(z=0.0):
 
 
 class TerrainRuntimeTest(unittest.TestCase):
+    def test_cloud_uses_matching_history_after_newer_odometry_arrives(self):
+        self.ros.Time.now.return_value = Stamp(100.12)
+        self.node._odom_callback(odometry(100.0))
+        self.node._odom_callback(odometry(100.1))
+        self.node._cloud_callback(cloud(flat_points(), 100.0))
+        self.assertTrue(self._latest_height().valid)
+        self.assertEqual(self._latest_height().header.stamp.to_nsec(), Stamp(100.0).to_nsec())
+
+    def test_cloud_can_arrive_before_its_matching_odometry(self):
+        self.ros.Time.now.return_value = Stamp(100.1)
+        self.node._odom_callback(odometry(100.0))
+        waiting = threading.Event()
+        original = self.node.odom_condition.wait_for
+        def observed_wait(predicate, timeout):
+            waiting.set()
+            return original(predicate, timeout=.2)
+        self.node.odom_condition.wait_for = observed_wait
+        worker = threading.Thread(target=self.node._cloud_callback, args=(cloud(flat_points(), 100.1),))
+        worker.start()
+        self.assertTrue(waiting.wait(.5))
+        self.node._odom_callback(odometry(100.1))
+        worker.join(.5)
+        self.assertFalse(worker.is_alive())
+        self.assertTrue(self._latest_height().valid)
+
+    def test_new_valid_odometry_during_tf_lookup_preserves_cloud_pair(self):
+        self.ros.Time.now.return_value = Stamp(100.1)
+        self.node._odom_callback(odometry(100.0))
+        first = [True]
+        def lookup(*args):
+            if first[0]:
+                first[0] = False
+                self.node._odom_callback(odometry(100.1))
+            return self._lookup_transform(*args)
+        self.buffer.lookup_transform.side_effect = lookup
+        self.node._cloud_callback(cloud(flat_points(), 100.0))
+        self.assertTrue(self._latest_height().valid)
+
+    def test_invalid_new_odometry_during_tf_lookup_revokes_cloud_pair(self):
+        self.node._odom_callback(odometry(100.0))
+        first = [True]
+        def lookup(*args):
+            if first[0]:
+                first[0] = False
+                bad = odometry(100.01)
+                bad.pose.pose.position.z = math.nan
+                self.node._odom_callback(bad)
+            return self._lookup_transform(*args)
+        self.buffer.lookup_transform.side_effect = lookup
+        self.node._cloud_callback(cloud(flat_points(), 100.0))
+        self.assertFalse(self._latest_height().valid)
+        self.assertFalse(self.node.odom_history)
+
+    def test_batch_cloud_transform_matches_full_rotation_and_translation(self):
+        from ducted_bringup.terrain_height import transform_cloud_points, transform_point
+        points=[(1.,2.,3.),(-1.,.4,5.)]
+        translation=(.2,-.3,.8)
+        rotation=(.1,.2,.3,.9)
+        actual=transform_cloud_points(iter(points),translation,rotation)
+        for point,result in zip(points,actual):
+            for expected,value in zip(transform_point(point,translation,rotation),result):
+                self.assertAlmostEqual(expected,value,places=12)
+
     def setUp(self):
         self.ros = MagicMock()
         self.ros.Time.now.return_value = Stamp(100.0)
@@ -180,6 +244,23 @@ class TerrainRuntimeTest(unittest.TestCase):
         self.assertEqual(height.header.frame_id, "odom")
         self.assertAlmostEqual(height.ground_z, 0.0)
         self.assertAlmostEqual(height.agl, 1.5)
+
+    def test_shipped_config_accepts_current_fastlio_frames_without_map_tf(self):
+        config = yaml.safe_load((PKG / 'config/terrain_height.yaml').read_text())
+        for key, value in config['frames'].items():
+            self.params['~frames/' + key] = value
+        self.node = self.module.TerrainHeightNode()
+        self.node._base_ready_callback(NS(data=True))
+        self.transforms.pop(('odom', 'map'))
+        self.transforms[('odom', 'camera_init')] = transform()
+        odom = odometry()
+        odom.header.frame_id, odom.child_frame_id = 'camera_init', 'body'
+        scan = cloud(flat_points())
+        scan.header.frame_id = 'camera_init'
+        self.node._odom_callback(odom)
+        self.node._cloud_callback(scan)
+        self.assertTrue(self._latest_height().valid)
+        self.assertAlmostEqual(self._latest_height().agl, 1.5)
 
     def test_tilted_map_scene_has_same_vertical_agl_after_exact_transform(self):
         angle = math.radians(30.0)

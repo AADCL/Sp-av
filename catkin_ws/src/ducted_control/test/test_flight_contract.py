@@ -16,7 +16,8 @@ class FlightContractTest(unittest.TestCase):
             'std_msgs/Header header', 'string request_id', 'geometry_msgs/Pose pose'])
         self.assertEqual((MSGS / 'msg/FlightControlStatus.msg').read_text().splitlines(), [
             'std_msgs/Header header', 'string state', 'string reason', 'bool ready',
-            'string request_id', 'geometry_msgs/Pose target'])
+            'string request_id', 'geometry_msgs/Pose target',
+            'string height_source', 'bool height_reference_valid'])
         self.assertEqual((MSGS / 'srv/FlightCommand.srv').read_text().splitlines(), [
             'string command', 'geometry_msgs/PoseStamped target', '---',
             'bool accepted', 'string message'])

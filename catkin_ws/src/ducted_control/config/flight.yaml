@@ -26,6 +26,11 @@ flight:
   takeoff_tolerance: 0.08
   takeoff_settle_time: 1.0
   land_timeout: 60.0
+  # Optional slow_land command: bounded OFFBOARD descent until contact feedback.
+  # AUTO.LAND is requested only after fresh ON_GROUND plus measured clearance.
+  slow_land_speed: 0.2
+  slow_land_timeout: 30.0
+  slow_land_contact_margin: 0.05
   min_takeoff_rise: 0.2
 
   # Provisional absolute odom envelope; dynamic tuning and airframe acceptance remain open.

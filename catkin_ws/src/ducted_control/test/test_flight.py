@@ -616,5 +616,166 @@ class FlightPolicyTest(unittest.TestCase):
         self.assertFalse(h.p.mode_dispatched(request.token, h.wall))
 
 
+class SlowLandingTest(unittest.TestCase):
+    def near_ground(self, sample_dt=.1, samples=5):
+        h=self.airborne()
+        h.pose=Pose(.2,.1,.35,.3)
+        h.refresh(fcu_mode='OFFBOARD',landed=2)
+        h.p._last_output=h.pose
+        self.start(h)
+        self.assertTrue(hasattr(h.p,'update_landing_geometry'), 'independent near-ground attitude gate missing')
+        for _ in range(samples):
+            h.advance(sample_dt);h.telemetry(fcu_mode='OFFBOARD',landed=2)
+            h.p.update_landing_geometry(.1,h.ros,h.ros,h.wall)
+            self.ground(h)
+            for action in h.p.tick(h.ros,h.wall):
+                if action.kind=='setpoint': h.pose=action.pose
+        return h
+
+    def blind(self,h,reason='insufficient terrain support at reference'):
+        h.p.update_landing_geometry(.1,h.ros,h.ros,h.wall)
+        h.p.update_terrain(False,math.nan,math.nan,.1,h.ros,h.ros,h.wall,reason=reason)
+
+    def test_near_ground_support_loss_uses_bounded_reference_until_contact(self):
+        h=self.near_ground();handoff=None;previous=h.p._last_output.z
+        for _ in range(65):
+            h.refresh(fcu_mode='OFFBOARD',landed=1 if h.pose.z<=.100001 else 2)
+            self.blind(h)
+            for action in h.p.tick(h.ros,h.wall):
+                if action.kind=='setpoint':
+                    self.assertLessEqual(previous-action.pose.z,.2*.05+.000001)
+                    previous=action.pose.z
+                    h.pose=Pose(.2,.1,max(.1,action.pose.z),.3)
+                elif action.kind=='mode':handoff=action
+            if handoff:break
+            self.assertEqual(h.p.snapshot().height_source,'LANDING_REFERENCE')
+            self.assertFalse(h.p._terrain['valid'])
+        self.assertIsNotNone(handoff)
+        self.assertEqual(handoff.mode,'AUTO.LAND')
+
+    def test_ambiguous_new_surface_never_uses_near_ground_fallback(self):
+        h=self.near_ground();h.refresh(fcu_mode='OFFBOARD',landed=2)
+        self.blind(h,'ambiguous multi-level terrain')
+        h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'HOLD')
+
+    def test_high_rate_ground_samples_establish_stable_landing_reference(self):
+        h=self.near_ground(.02,15);h.refresh(fcu_mode='OFFBOARD',landed=2)
+        self.blind(h);h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'SLOW_DESCENT')
+        self.assertEqual(h.p.snapshot().height_source,'LANDING_REFERENCE')
+
+    def test_near_ground_reference_expires_and_does_not_resume(self):
+        h=self.near_ground();h.advance(3.1);h.telemetry(fcu_mode='OFFBOARD',landed=2)
+        self.blind(h);h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'HOLD')
+        h.refresh(fcu_mode='OFFBOARD',landed=2);self.ground(h)
+        self.assertEqual(h.p.state,'HOLD')
+
+    def test_near_ground_reference_rejects_lateral_drift_and_geometry_loss(self):
+        for geometry_loss in (True,False):
+            h=self.near_ground()
+            h.refresh(fcu_mode='OFFBOARD',landed=2,
+                      pose=Pose(.2 if geometry_loss else .32,.1,h.pose.z,.3))
+            self.blind(h)
+            if geometry_loss:h.p.update_landing_geometry(math.nan,h.ros+.001,h.ros+.001,h.wall)
+            h.p.tick(h.ros+.001,h.wall)
+            self.assertEqual(h.p.state,'HOLD')
+
+    def test_missing_height_heartbeat_is_not_a_near_ground_blind_measurement(self):
+        h=self.near_ground();h.advance(.51);h.telemetry(fcu_mode='OFFBOARD',landed=2)
+        h.p.update_landing_geometry(.1,h.ros,h.ros,h.wall)
+        h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'HOLD')
+
+    def airborne(self):
+        h = Harness()
+        h.pose = Pose(.2, .1, 1.0, .3)
+        h.finish_engage()
+        h.refresh(fcu_mode='OFFBOARD', landed=2)
+        return h
+
+    def ground(self, h, valid=True, z=0.):
+        self.assertTrue(hasattr(h.p, 'update_terrain'), 'slow landing terrain input missing')
+        h.p.update_terrain(valid, z, h.pose.z-z, .1, h.ros, h.ros, h.wall)
+
+    def start(self, h):
+        self.ground(h)
+        self.assertTrue(h.p.command('slow_land', None, h.ros, h.wall).accepted)
+
+    def test_requires_fresh_ground_and_airborne_feedback(self):
+        h = self.airborne()
+        result = h.p.command('slow_land', None, h.ros, h.wall)
+        self.assertFalse(result.accepted)
+        self.assertIn('terrain', result.message)
+        self.ground(h)
+        h.refresh(fcu_mode='OFFBOARD', landed=1)
+        self.assertFalse(h.p.command('slow_land', None, h.ros, h.wall).accepted)
+
+    def test_descent_is_bounded_and_reaches_contact_before_auto_land(self):
+        h = self.airborne(); self.start(h)
+        previous = h.pose.z
+        handoff = None
+        for _ in range(160):
+            h.refresh(fcu_mode='OFFBOARD', landed=1 if h.pose.z <= .100001 else 2)
+            self.ground(h)
+            actions = h.p.tick(h.ros, h.wall)
+            for action in actions:
+                if action.kind == 'setpoint':
+                    self.assertLessEqual(previous-action.pose.z, .2*.05+1e-9)
+                    self.assertAlmostEqual(action.pose.x, .2)
+                    self.assertAlmostEqual(action.pose.y, .1)
+                    self.assertLessEqual(action.pose.z, previous+1e-9)
+                    previous = action.pose.z
+                    h.pose = Pose(.2, .1, max(.1, action.pose.z), .3)
+                else:
+                    handoff = action
+            if handoff: break
+        self.assertIsNotNone(handoff)
+        self.assertEqual(handoff.mode, 'AUTO.LAND')
+        self.assertLessEqual(h.pose.z, .100001)
+
+    def test_fresh_height_near_ground_alone_cannot_trigger_land_mode(self):
+        h = self.airborne(); self.start(h)
+        h.pose = Pose(.2, .1, .1, .3)
+        h.p._last_output = h.pose
+        for _ in range(12):
+            h.refresh(fcu_mode='OFFBOARD', landed=2); self.ground(h)
+            self.assertFalse(any(a.kind == 'mode' for a in h.p.tick(h.ros, h.wall)))
+
+    def test_stale_height_holds_and_does_not_resume_on_recovery(self):
+        h = self.airborne(); self.start(h)
+        h.advance(.51); h.telemetry(fcu_mode='OFFBOARD', landed=2)
+        h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state, 'HOLD')
+        self.assertEqual(h.p.target,h.pose)
+        h.refresh(fcu_mode='OFFBOARD',landed=2);self.ground(h)
+        h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'HOLD')
+
+    def test_invalid_height_revokes_already_computed_descent(self):
+        h=self.airborne();self.start(h)
+        h.refresh(fcu_mode='OFFBOARD',landed=2);self.ground(h)
+        action=h.p.tick(h.ros,h.wall)[0]
+        self.ground(h,valid=False)
+        self.assertFalse(h.p.action_current(action,h.ros,h.wall))
+
+    def test_abort_and_rc_hold_interrupt_descent(self):
+        for command in ('abort','rc_hold'):
+            h=self.airborne();self.start(h)
+            h.refresh(fcu_mode='OFFBOARD',landed=2,rc_mode='hold' if command=='rc_hold' else 'command')
+            self.ground(h)
+            if command=='abort':self.assertTrue(h.p.command('abort',None,h.ros,h.wall).accepted)
+            h.p.tick(h.ros,h.wall)
+            self.assertEqual(h.p.state,'HOLD')
+            self.assertEqual(h.p.target,h.pose)
+
+    def test_floor_discontinuity_does_not_command_further_descent(self):
+        h=self.airborne();self.start(h)
+        h.refresh(fcu_mode='OFFBOARD',landed=2);self.ground(h,z=-.3)
+        h.p.tick(h.ros,h.wall)
+        self.assertEqual(h.p.state,'HOLD')
+
+
 if __name__ == '__main__':
     unittest.main()

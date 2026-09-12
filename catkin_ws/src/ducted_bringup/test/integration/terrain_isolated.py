@@ -78,7 +78,7 @@ try:
     pubs = {
         'base': rospy.Publisher('/ducted/system/ready', Bool, queue_size=1),
         'odom': rospy.Publisher('/ducted/localization/odom', Odometry, queue_size=1),
-        'cloud': rospy.Publisher('/ducted/relocalization/registered_scan', PointCloud2, queue_size=1),
+        'cloud': rospy.Publisher('/ducted/localization/cloud_registered', PointCloud2, queue_size=1),
     }
     sub = rospy.Subscriber('/ducted/terrain/height', TerrainHeight, observe, queue_size=10)
     broadcaster = tf2_ros.StaticTransformBroadcaster()
@@ -86,7 +86,7 @@ try:
     angle = .3
     transforms = []
     for parent, child, xyz, quat in [
-            ('odom', 'map', (0., 0., 0.), (0., math.sin(angle/2), 0., math.cos(angle/2))),
+            ('odom', 'camera_init', (0., 0., 0.), (0., math.sin(angle/2), 0., math.cos(angle/2))),
             ('odom', 'base_link', (0., 0., 1.5), (0., 0., 0., 1.))]:
         t = TransformStamped()
         t.header.stamp = rospy.Time.now()
@@ -96,14 +96,14 @@ try:
         transforms.append(t)
     broadcaster.sendTransform(transforms)
 
-    def sample(points=None, odom=True, cloud=True, base=True, frame='map', skew=0.):
+    def sample(points=None, odom=True, cloud=True, base=True, frame='camera_init', skew=0.):
         stamp = rospy.Time.now()
         if base:
             pubs['base'].publish(True)
         if odom:
             m = Odometry()
             m.header.stamp = stamp
-            m.header.frame_id, m.child_frame_id = 'map', 'livox_frame'
+            m.header.frame_id, m.child_frame_id = 'camera_init', 'body'
             m.pose.pose.orientation.w = 1.
             pubs['odom'].publish(m)
         time.sleep(.012)

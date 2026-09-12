@@ -66,28 +66,64 @@ def perform_save(destination, status_path, call, read_progress, interval=1.0):
     return result
 
 
+def read_status(job):
+    job = Path(job)
+    status = json.loads((job / 'status.json').read_text(encoding='utf-8'))
+    if status['state'] in ('SUBMITTED', 'SAVING') and (job / 'process.json').exists():
+        identity = json.loads((job / 'process.json').read_text())
+        try:
+            fields = Path('/proc/{}/stat'.format(identity['pid'])).read_text().rsplit(')', 1)[1].split()
+            alive = fields[19] == identity['start_ticks'] and fields[0] not in ('Z', 'X')
+        except (OSError, IndexError):
+            alive = False
+        if not alive:
+            # The worker may have committed its final status after our first
+            # read. Re-read before reporting an incomplete client exit.
+            status = json.loads((job / 'status.json').read_text(encoding='utf-8'))
+            if status['state'] in ('SUBMITTED', 'SAVING'):
+                status.update(state='UNKNOWN', message='Background client exited; inspect worker.log and map before retrying')
+    return status
+
+
+def wait_for_save(job, interval=2.0):
+    try:
+        while True:
+            status = read_status(job)
+            state = status['state']
+            if state == 'SUCCEEDED':
+                print('保存完成：' + str(Path(status['destination']) / 'GlobalMap.pcd'), flush=True)
+                return 0
+            if state not in ('SUBMITTED', 'SAVING'):
+                print(state + ': ' + status.get('message', '检查建图终端和 worker.log'), flush=True)
+                return 1 if state == 'FAILED' else 2
+            progress = status.get('progress', {})
+            print('{}  已用时 {} 秒  {}'.format(state, status.get('elapsed_seconds', 0),
+                  json.dumps(progress, ensure_ascii=False) if progress else '等待建图节点进度'), flush=True)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print('\n已退出进度显示，后台保存继续。保持建图运行；用 ./save_map.sh --status 查询。')
+        return 130
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['start', 'status', '_worker'])
+    parser.add_argument('command', choices=['start', 'status', 'wait', '_worker'])
     parser.add_argument('--destination')
     parser.add_argument('--resolution', type=float, default=.2)
     parser.add_argument('--job', help='Job directory printed by start')
     parser.add_argument('--log-root', default='/home/nrc/catkin_ws/logs/map-save-jobs')
     parser.add_argument('--lock-fd', type=int)
+    parser.add_argument('--wait', action='store_true', help='Show progress after submitting; Ctrl+C leaves save running')
     args = parser.parse_args()
     master = os.environ.get('ROS_MASTER_URI', 'http://localhost:11311')
     root = Path(args.log_root) / hashlib.sha256(master.encode()).hexdigest()[:12]
-    if args.command == 'status':
+    if args.command in ('status', 'wait'):
+        if not args.job and not (root / 'latest.json').is_file():
+            parser.error('no map-save job found for this ROS master')
         job = Path(args.job) if args.job else Path(json.loads((root / 'latest.json').read_text())['job'])
-        status = json.loads((job / 'status.json').read_text(encoding='utf-8'))
-        if status['state'] in ('SUBMITTED', 'SAVING') and (job / 'process.json').exists():
-            identity = json.loads((job / 'process.json').read_text())
-            try:
-                current = Path('/proc/{}/stat'.format(identity['pid'])).read_text().rsplit(')', 1)[1].split()[19]
-            except OSError:
-                current = None
-            if current != identity['start_ticks']:
-                status.update(state='UNKNOWN', message='Background client exited; inspect worker.log and map before retrying')
+        if args.command == 'wait':
+            return wait_for_save(job)
+        status = read_status(job)
         print(json.dumps(status, ensure_ascii=False, indent=2))
         return 0
     if not args.destination or not math.isfinite(args.resolution) or not 0 <= args.resolution <= 1:
@@ -133,7 +169,7 @@ def main():
     print('Save submitted (not yet complete). Keep mapping/base running and aircraft still.')
     print('Job: ' + str(job))
     print('Check: rosrun ducted_bringup save_map.py status')
-    return 0
+    return wait_for_save(job) if args.wait else 0
 
 
 if __name__ == '__main__':

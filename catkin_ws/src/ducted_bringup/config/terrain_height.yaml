@@ -1,12 +1,13 @@
 frames:
-  map: map
+  map: camera_init
   output: odom
-  sensor: livox_frame
+  sensor: body
   base: base_link
 
-# The external odometry adapter must provide exact-time odom->map and
-# livox_frame->base_link TF. It may run on a preview output topic while MAVROS
-# injection remains disabled; this launch file does not start flight hardware.
+# Read the local FAST-LIO camera_init/body stream in both mapping and
+# relocalization. The frames/map key names the input cloud's world frame.
+# Localization provides exact-time odom->camera_init->body->base_link TF;
+# terrain estimation does not depend on global map registration or PX4 injection.
 agl_reference: base_link
 # body_vertices comes from the shared airframe_geometry.yaml loaded by launch.
 reference_confirmed: false
