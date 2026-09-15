@@ -1,8 +1,13 @@
 """Thread-safe navigation input lifetime and exact-transform helpers."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections import deque
 import math
 import threading
+
+try:
+    import numpy as _np
+except ImportError:
+    _np = None
 
 from .planner import Pose, Snapshot, Terrain, Vec3, finite, wrap
 
@@ -21,6 +26,7 @@ class RuntimeConfig:
     max_terrain_variance: float = 0.02
     height_mode: str = 'terrain'
     reference_z: float = 0.0
+    require_planner_context: bool = False
 
     def __post_init__(self):
         if self.height_mode not in ('terrain', 'takeoff_relative') or not finite(self.reference_z):
@@ -59,6 +65,7 @@ class SnapshotToken:
     request_id: str
     stamps: tuple
     samples: tuple
+    goal_generation: int = 0
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,44 @@ class NavigationRuntime:
         self._goal_seen = 0.0
         self._pending_goal = None
         self._last_publish_stamp = 0.0
+        self._context_id = ""
+
+    @property
+    def context_id(self):
+        with self._lock:
+            return self._context_id
+
+    def accept_context(self, stamp, wall, request_id, ready, reference_valid,
+                       reference_z, ros_now):
+        """A fresh controller lease owns both a goal generation and its datum."""
+        with self._lock:
+            valid = (isinstance(request_id, str) and bool(request_id.strip())
+                     and ready is True and reference_valid is True
+                     and finite(reference_z))
+            accepted = self._accept('controller', stamp, wall, valid, valid, ros_now)
+            identifier = request_id if accepted else ''
+            changed = (identifier != self._context_id
+                       or (accepted and reference_z != self.config.reference_z))
+            if changed or not accepted:
+                self._request_id = ''
+                self._goal = None
+                self._goal_orientation = None
+                self._pending_goal = None
+                self._goal_generation += 1
+                self._generation += 1
+                self._context_id = identifier
+            if accepted:
+                self.config = replace(self.config, reference_z=float(reference_z))
+            return accepted
+
+    def _context_allows(self, request_id, ros_now, wall_now=None):
+        if not self.config.require_planner_context:
+            return True
+        record = self._records['controller']
+        return (request_id == self._context_id and bool(request_id)
+                and record['wall'] is not None
+                and self._fresh('controller', ros_now,
+                                record['wall'] if wall_now is None else wall_now))
 
     @staticmethod
     def _record():
@@ -139,9 +184,19 @@ class NavigationRuntime:
 
     def accept_cloud(self, stamp, wall, frame, points, ros_now=None):
         try:
-            points = tuple(tuple(float(axis) for axis in point) for point in points)
-            points_valid = all(len(point) == 3 and finite(*point) for point in points)
-        except (TypeError, ValueError):
+            if _np is not None and hasattr(points, '__len__') and len(points) >= 256:
+                array = _np.asarray(points, dtype=_np.float64)
+                points_valid = (array.shape == (len(points), 3) and _np.isfinite(array).all())
+                # Own immutable values; never retain a caller's writable array.
+                if points_valid and isinstance(points, _np.ndarray):
+                    points = array.copy()
+                    points.setflags(write=False)
+                else:
+                    points = tuple(map(tuple, array.tolist())) if points_valid else ()
+            else:
+                points = tuple(tuple(float(axis) for axis in point) for point in points)
+                points_valid = all(len(point) == 3 and finite(*point) for point in points)
+        except (TypeError, ValueError, OverflowError):
             points, points_valid = (), False
         return self._accept("cloud", stamp, wall, frame == "odom" and points_valid,
                             points, ros_now)
@@ -163,11 +218,13 @@ class NavigationRuntime:
         return self._accept(name, stamp, wall, type(ready) is bool and ready,
                             bool(ready), ros_now)
 
-    def begin_goal(self, request_id, stamp, ros_now):
+    def begin_goal(self, request_id, stamp, ros_now, wall_now=None):
         valid = (isinstance(request_id, str) and request_id.strip()
                  and finite(stamp, ros_now) and stamp > 0
                  and -self.config.future_tolerance <= ros_now - stamp <= self.config.source_timeout)
         with self._lock:
+            if not self._context_allows(request_id, ros_now, wall_now):
+                return None, CommandResult(False, "goal does not match fresh planner context")
             if not valid or stamp <= self._goal_seen:
                 return None, CommandResult(False, "request ID or goal source stamp is invalid")
             self._goal_seen = float(stamp)
@@ -180,12 +237,14 @@ class NavigationRuntime:
             self._pending_goal = token
         return token, CommandResult(True, "navigation goal reserved")
 
-    def complete_goal(self, token, goal, orientation, ros_now):
+    def complete_goal(self, token, goal, orientation, ros_now, wall_now=None):
         if (not isinstance(goal, Pose) or not finite(goal.x, goal.y, goal.z, goal.yaw)
                 or len(orientation) != 4 or not finite(*orientation, ros_now)):
             return CommandResult(False, "transformed navigation goal is invalid")
         with self._lock:
-            if (token != self._pending_goal or token.generation != self._goal_generation
+            if (not isinstance(token, GoalToken)
+                    or not self._context_allows(token.request_id, ros_now, wall_now)
+                    or token != self._pending_goal or token.generation != self._goal_generation
                     or not (-self.config.future_tolerance <= ros_now - token.stamp
                             <= self.config.source_timeout)):
                 return CommandResult(False, "navigation goal was superseded or became stale")
@@ -311,6 +370,8 @@ class NavigationRuntime:
                 return None, None, "invalid current time"
             if not self._request_id or self._goal is None:
                 return None, None, "no active navigation request"
+            if not self._context_allows(self._request_id, ros_now, wall_now):
+                return None, None, "planner context revoked or stale"
             for name in self.required_sources:
                 if not self._fresh(name, ros_now, wall_now):
                     return None, None, "%s missing or stale" % name
@@ -323,12 +384,14 @@ class NavigationRuntime:
             snapshot = Snapshot(samples[1].stamp, pose, velocity, self._goal,
                                 samples[1].value, samples[2].value)
             stamps = tuple(sample.stamp for sample in samples)
-            token = SnapshotToken(self._generation, self._request_id, stamps, samples)
+            token = SnapshotToken(self._generation, self._request_id, stamps, samples,
+                                  self._goal_generation)
             return token, snapshot, ""
 
     def revalidate(self, token, ros_now, wall_now):
         with self._lock:
             return (isinstance(token, SnapshotToken)
+                    and self._context_allows(token.request_id, ros_now, wall_now)
                     and token.generation == self._generation
                     and token.request_id == self._request_id
                     and all(self._fresh(name, ros_now, wall_now)
@@ -406,9 +469,28 @@ def rotate(point, quaternion):
     return quaternion_multiply(quaternion_multiply(q, pure), conjugate)[:3]
 
 
-def transform_points(points, translation, rotation_quaternion):
+def transform_points(points, translation, rotation_quaternion, as_array=False):
     if len(translation) != 3 or not finite(*translation, *rotation_quaternion):
         raise ValueError("transform contains non-finite values")
+    if _np is not None and hasattr(points, '__len__') and (as_array or len(points) >= 256):
+        array = (_np.asarray(points, dtype=_np.float64) if len(points)
+                 else _np.empty((0, 3), dtype=_np.float64))
+        if array.shape != (len(points), 3):
+            raise ValueError('cloud points must contain exactly three coordinates')
+        x, y, z, w = rotation_quaternion
+        norm = math.sqrt(x*x + y*y + z*z + w*w)
+        if not finite(norm) or norm <= 0:
+            raise ValueError('transform quaternion is invalid')
+        x, y, z, w = x/norm, y/norm, z/norm, w/norm
+        px, py, pz = array[:, 0], array[:, 1], array[:, 2]
+        # Batch the same full rotation; avoid per-point Python quaternion
+        # normalization and multiplication starving the planning/RPC threads.
+        # Explicit columns also avoid spawning a BLAS thread pool for N x 3.
+        output = _np.empty_like(array)
+        output[:, 0] = (1-2*(y*y+z*z))*px + 2*(x*y-z*w)*py + 2*(x*z+y*w)*pz + translation[0]
+        output[:, 1] = 2*(x*y+z*w)*px + (1-2*(x*x+z*z))*py + 2*(y*z-x*w)*pz + translation[1]
+        output[:, 2] = 2*(x*z-y*w)*px + 2*(y*z+x*w)*py + (1-2*(x*x+y*y))*pz + translation[2]
+        return output if as_array else tuple(map(tuple, output.tolist()))
     transformed = []
     for point in points:
         rotated = rotate(point, rotation_quaternion)

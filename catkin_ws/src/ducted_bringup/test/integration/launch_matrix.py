@@ -12,9 +12,9 @@ def main():
     package = Path(rospkg.RosPack().get_path('ducted_bringup'))
     launch = str(package / 'launch/modules.launch')
     flags = ('start_external_odometry', 'start_terrain', 'start_rc_processing',
-             'start_flight', 'start_avoidance', 'start_mission', 'start_recording')
+             'start_avoidance', 'start_recording')
     gates = ('input_contract_confirmed', 'reference_confirmed', 'mapping_confirmed',
-             'geometry_confirmed', 'enable_flight_output', 'enable_output', 'enable_commands')
+             'geometry_confirmed', 'enable_output')
     checked = 0
     for localization in ('none', 'mapping', 'relocalization'):
         for values in itertools.product((False, True), repeat=len(flags)):
@@ -27,11 +27,12 @@ def main():
             assert not any(node.package in ('mavros', 'livox_ros_driver2')
                            or node.type == 'base_health_monitor.py' for node in config.nodes), args
             assert sum(node.type == 'rc_monitor.py' for node in config.nodes) == int(
-                selected['start_rc_processing'] or selected['start_flight']), args
-            assert names.count('ducted_navigation') == int(selected['start_avoidance']), args
-            assert names.count('ego') == int(selected['start_avoidance']), args
+                selected['start_rc_processing']), args
+            assert names.count('ego_frozen') == int(selected['start_avoidance']), args
+            assert 'ducted_navigation' not in names and 'ego' not in names, args
+            assert not any(n.package == 'ducted_offboard' for n in config.nodes), args
             assert names.count('mapping') == int(localization == 'mapping'), args
-            assert names.count('relocalization') == int(localization == 'relocalization'), args
+            assert names.count('global_relocalizer') == int(localization == 'relocalization'), args
             assert names.count('localization_frames') == int(localization != 'none'), args
             for node in config.nodes:
                 if node.name == 'localization_frames':

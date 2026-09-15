@@ -59,6 +59,41 @@ class RCRuntimeTest(unittest.TestCase):
         self.node._base_callback(NS(data=False))
         self.assertFalse(self.node.state_pub.publish.call_args[0][0].valid)
 
+    def test_watchdog_does_not_replay_valid_measurements(self):
+        self.node._rc_callback(self.raw)
+        for elapsed in (.01,.02,.04):
+            self.ros.get_time.return_value=100.+elapsed
+            self.wall.return_value=10.+elapsed
+            self.node._watchdog()
+        self.assertEqual(1,self.node.state_pub.publish.call_count)
+        self.assertEqual(100.,self.node.state_pub.publish.call_args[0][0].header.stamp.to_sec())
+        self.ros.get_time.return_value=100.05;self.wall.return_value=10.05
+        self.raw.header.stamp=NS(to_sec=lambda:100.05)
+        self.node._rc_callback(self.raw)
+        self.assertEqual(2,self.node.state_pub.publish.call_count)
+        self.assertTrue(self.node.state_pub.publish.call_args[0][0].valid)
+
+    def test_watchdog_still_publishes_loss_and_requires_new_raw_frame_to_recover(self):
+        self.node._rc_callback(self.raw)
+        self.node._base_callback(NS(data=False))
+        calls=self.node.state_pub.publish.call_count
+        self.node._base_callback(NS(data=True));self.node._watchdog()
+        self.assertEqual(calls,self.node.state_pub.publish.call_count)
+        self.assertFalse(self.node.state_pub.publish.call_args[0][0].valid)
+        self.wall.return_value=10.6;self.ros.get_time.return_value=100.6
+        self.node._watchdog()
+        self.assertFalse(self.node.state_pub.publish.call_args[0][0].valid)
+        self.node.ready_pub.publish.assert_called_with(False)
+        self.raw.header.stamp=NS(to_sec=lambda:100.6)
+        self.node._rc_callback(self.raw)
+        self.assertTrue(self.node.state_pub.publish.call_args[0][0].valid)
+
+    def test_raw_duplicate_is_still_invalidated(self):
+        self.node._rc_callback(self.raw)
+        self.node._rc_callback(self.raw)
+        self.assertFalse(self.node.state_pub.publish.call_args[0][0].valid)
+        self.node.ready_pub.publish.assert_called_with(False)
+
     def test_frozen_ros_clock_stale_rc_and_base_clear_ready(self):
         self.node._rc_callback(self.raw)
         self.wall.return_value = 11.1

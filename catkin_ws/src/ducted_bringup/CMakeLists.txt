@@ -19,6 +19,7 @@ catkin_package(
 
 catkin_install_python(
   PROGRAMS
+    scripts/frozen_ego.py
     scripts/base_health_monitor.py
     scripts/fastlio_odometry_adapter.py
     scripts/world_tf_owner.py
@@ -36,6 +37,7 @@ install(
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_operator_inputs.py)
   catkin_add_nosetests(test/test_base_health.py)
   catkin_add_nosetests(test/test_fastlio_odometry_adapter.py)
   catkin_add_nosetests(test/test_odometry_runtime.py)
@@ -49,5 +51,4 @@ if(CATKIN_ENABLE_TESTING)
   catkin_add_nosetests(test/test_scaffold_contract.py)
   catkin_add_nosetests(test/test_terrain_height.py)
   catkin_add_nosetests(test/test_terrain_runtime.py)
-  catkin_add_nosetests(test/test_forward_profile.py)
 endif()

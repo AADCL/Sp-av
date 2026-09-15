@@ -6,18 +6,13 @@
   <arg name="start_external_odometry" default="false" />
   <arg name="start_terrain" default="false" />
   <arg name="start_rc_processing" default="false" />
-  <arg name="start_flight" default="false" />
   <arg name="start_avoidance" default="false" />
-  <arg name="start_mission" default="false" />
   <arg name="start_recording" default="false" />
   <arg name="input_contract_confirmed" default="false" />
   <arg name="reference_confirmed" default="false" />
   <arg name="mapping_confirmed" default="false" />
   <arg name="geometry_confirmed" default="false" />
-  <arg name="enable_flight_output" default="false" />
   <arg name="enable_navigation_output" default="false" />
-  <arg name="enable_mission_commands" default="false" />
-  <arg name="mission_file" default="$(find ducted_mission)/config/mission.yaml" />
 
   <include if="$(eval arg('localization') == 'mapping')" file="$(find ducted_bringup)/launch/mapping.launch" />
   <include if="$(eval arg('localization') == 'relocalization')" file="$(find ducted_bringup)/launch/relocalization.launch">
@@ -29,20 +24,12 @@
   <include if="$(arg start_terrain)" file="$(find ducted_bringup)/launch/terrain_height.launch">
     <arg name="reference_confirmed" value="$(arg reference_confirmed)" />
   </include>
-  <include if="$(eval arg('start_rc_processing') and not arg('start_flight'))" file="$(find ducted_bringup)/launch/rc_processing.launch">
+  <include if="$(arg start_rc_processing)" file="$(find ducted_bringup)/launch/rc_processing.launch">
     <arg name="mapping_confirmed" value="$(arg mapping_confirmed)" />
-  </include>
-  <include if="$(arg start_flight)" file="$(find ducted_bringup)/launch/flight_control.launch">
-    <arg name="mapping_confirmed" value="$(arg mapping_confirmed)" />
-    <arg name="enable_flight_output" value="$(arg enable_flight_output)" />
   </include>
   <include if="$(arg start_avoidance)" file="$(find ducted_bringup)/launch/ego_planner.launch">
     <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
     <arg name="enable_output" value="$(arg enable_navigation_output)" />
-  </include>
-  <include if="$(arg start_mission)" file="$(find ducted_bringup)/launch/waypoint_mission.launch">
-    <arg name="mission_file" value="$(arg mission_file)" />
-    <arg name="enable_commands" value="$(arg enable_mission_commands)" />
   </include>
   <include if="$(arg start_recording)" file="$(find ducted_bringup)/launch/recording.launch" />
 </launch>

@@ -1,0 +1,45 @@
+<launch>
+  <arg name="config_file" default="$(find ducted_offboard)/config/offboard.yaml" />
+  <arg name="target_source" default="topic" />
+  <arg name="execution_mode" default="direct" />
+  <arg name="topic_mode" default="single" />
+  <arg name="mission_file" default="$(find ducted_offboard)/config/mission_example.yaml" />
+  <arg name="prestream_duration" default="2.0" />
+  <arg name="retry_interval" default="5.0" />
+  <arg name="feedback_timeout" default="2.0" />
+  <arg name="service_timeout" default="3.0" />
+  <arg name="takeoff_height" default="1.0" />
+  <arg name="horizontal_speed" default="0.3" />
+  <arg name="vertical_speed" default="0.2" />
+  <arg name="yaw_rate_deg" default="20.0" />
+  <arg name="arrival_dwell" default="1.0" />
+  <arg name="ground_disarm_delay" default="5.0" />
+  <arg name="takeoff_timeout" default="30.0" />
+  <arg name="waypoint_timeout" default="120.0" />
+  <arg name="landing_timeout" default="120.0" />
+  <arg name="log_root" default="/home/nrc/catkin_ws/logs/offboard_control" />
+
+  <node pkg="ducted_offboard" type="offboard_controller_node"
+        name="ducted_offboard_controller" output="screen" required="true"
+        respawn="false">
+    <rosparam command="load" file="$(arg config_file)" />
+    <param name="target_source" value="$(arg target_source)" />
+    <param name="execution_mode" value="$(arg execution_mode)" />
+    <param name="topic_mode" value="$(arg topic_mode)" />
+    <param name="mission_file" value="$(arg mission_file)" />
+    <param name="prestream_duration" value="$(arg prestream_duration)" />
+    <param name="retry_interval" value="$(arg retry_interval)" />
+    <param name="feedback_timeout" value="$(arg feedback_timeout)" />
+    <param name="service_timeout" value="$(arg service_timeout)" />
+    <param name="takeoff_height" value="$(arg takeoff_height)" />
+    <param name="horizontal_speed" value="$(arg horizontal_speed)" />
+    <param name="vertical_speed" value="$(arg vertical_speed)" />
+    <param name="yaw_rate_deg" value="$(arg yaw_rate_deg)" />
+    <param name="arrival_dwell" value="$(arg arrival_dwell)" />
+    <param name="ground_disarm_delay" value="$(arg ground_disarm_delay)" />
+    <param name="takeoff_timeout" value="$(arg takeoff_timeout)" />
+    <param name="waypoint_timeout" value="$(arg waypoint_timeout)" />
+    <param name="landing_timeout" value="$(arg landing_timeout)" />
+    <param name="log_root" value="$(arg log_root)" />
+  </node>
+</launch>

@@ -1,0 +1,55 @@
+target_source: topic
+execution_mode: direct
+frame_pair_max_skew: 0.05
+frame_position_tolerance: 0.05
+frame_yaw_tolerance: 0.1
+topic_mode: single
+mission_frame: mission_start
+mission_file: ""
+
+control_rate: 20.0
+status_rate: 10.0
+telemetry_rate: 5.0
+prestream_duration: 2.0
+retry_interval: 5.0
+feedback_timeout: 2.0
+service_timeout: 3.0
+max_attempts: 4
+
+takeoff_height: 1.0
+horizontal_speed: 0.3
+vertical_speed: 0.2
+yaw_rate_deg: 20.0
+horizontal_tolerance: 0.15
+vertical_tolerance: 0.10
+yaw_tolerance_deg: 10.0
+speed_tolerance: 0.15
+arrival_dwell: 1.0
+takeoff_timeout: 30.0
+waypoint_timeout: 120.0
+landing_timeout: 120.0
+ground_disarm_delay: 5.0
+
+state_timeout: 3.0
+pose_timeout: 0.5
+velocity_timeout: 0.5
+extended_state_timeout: 3.0
+future_tolerance: 0.05
+target_message_max_age: 2.0
+
+command_param: /ctrl_cmd/state
+status_topic: /ctrl_cmd/status
+target_topic: /ctrl_cmd/target
+waypoints_topic: /ctrl_cmd/waypoints
+setpoint_topic: /mavros/setpoint_position/local
+state_topic: /mavros/state
+pose_topic: /mavros/local_position/pose
+velocity_topic: /mavros/local_position/velocity_local
+extended_state_topic: /mavros/extended_state
+set_mode_service: /mavros/set_mode
+arming_service: /mavros/cmd/arming
+
+log_root: /home/nrc/catkin_ws/logs/offboard_control
+log_max_bytes: 5242880
+log_keep_files: 3
+task_timeout: 0.5

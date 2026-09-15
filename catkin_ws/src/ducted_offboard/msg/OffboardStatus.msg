@@ -1,0 +1,29 @@
+std_msgs/Header header
+int32 command
+uint8 state
+string phase
+string reason
+uint32 current_waypoint
+uint32 waypoint_count
+string fcu_mode
+bool connected
+bool armed
+uint8 landed_state
+bool input_ready
+bool setpoint_active
+bool mission_loaded
+geometry_msgs/Pose target
+string log_directory
+string execution_mode
+string planner_request_id
+string planner_state
+bool planner_ready
+float64 planner_target_age
+bool reference_valid
+float64 takeoff_reference_z
+
+# Independent task and execution feedback. Planner fields remain FROZEN.
+string task_phase
+string executor_phase
+uint64 task_generation
+float64 task_heartbeat_age

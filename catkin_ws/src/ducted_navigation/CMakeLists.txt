@@ -33,6 +33,10 @@ install(DIRECTORY config
 )
 
 if(CATKIN_ENABLE_TESTING)
+  catkin_add_nosetests(test/test_ego_worker.py)
+  catkin_add_nosetests(test/test_cloud_input.py)
+  catkin_add_nosetests(test/test_failure_recorder.py)
+  catkin_add_nosetests(test/test_planner_context.py)
   catkin_add_nosetests(test/test_relative_height.py)
   catkin_add_nosetests(test/test_trajectory_guard.py)
   catkin_add_nosetests(test/test_planner_core.py)

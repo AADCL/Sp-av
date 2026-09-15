@@ -21,13 +21,17 @@ def main():
     stages = [
         ('build', ['catkin_make', '-j3', '-l3'], 600),
         ('unit', ['catkin_make', 'run_tests_ducted_bringup', 'run_tests_ducted_control',
-                  'run_tests_ducted_navigation', 'run_tests_ducted_mission', '-j3', '-l3'], 300),
+                  'run_tests_ducted_navigation', 'run_tests_ducted_offboard', '-j3', '-l3'], 300),
         ('results', ['catkin_test_results', 'build/test_results'], 30),
         ('launch_matrix', [sys.executable, str(here / 'launch_matrix.py')], 600),
+        ('frozen_launch', [sys.executable, str(root / 'src/ducted_offboard/test/integration/frozen_launch_checks.py')], 60),
     ]
     if args.integration:
+        stages += [('thread_test_build', ['catkin_make', 'offboard_controller_test_node', '-j3', '-l3'], 300)]
         stages += [(name, [sys.executable, str(here / (name + '.py'))], 240)
-                   for name in ('terrain_isolated', 'flight_isolated', 'ego_core_isolated', 'ego_mission_isolated', 'automatic_flight_isolated')]
+                   for name in ('terrain_isolated',)]
+        stages += [(name, [sys.executable, str(root / 'src/ducted_offboard/test/integration' / (name+'.py'))], 240)
+                   for name in ('offboard_isolated', 'split_threads_isolated')]
     results = []
     for name, command, timeout in stages:
         with (directory / (name + '.log')).open('w') as stream:

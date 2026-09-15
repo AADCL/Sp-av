@@ -3,6 +3,9 @@ max_speed: 0.5
 max_acceleration: 0.5
 max_vertical_speed: 0.3
 planning_horizon: 2.8
+# Matches navigation and OFFBOARD source freshness. Both downstream layers
+# independently reject any result that has aged beyond this bound.
+snapshot_timeout: 0.5
 optimization:
   lambda_smooth: 1.0
   lambda_collision: 8.0

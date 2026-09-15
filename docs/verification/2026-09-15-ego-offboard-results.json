@@ -1,0 +1,167 @@
+{
+  "timestamp_utc": "2026-09-15T05:26:46.720938+00:00",
+  "architecture": "aarch64",
+  "unit_tests": {
+    "ducted_offboard": {
+      "cases": 28,
+      "failures": 0,
+      "errors": 0
+    },
+    "ducted_navigation": {
+      "cases": 117,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "integration": {
+    "passed": true,
+    "checks": [
+      "takeoff automatically submits EGO goal",
+      "real EGO emits spline",
+      "curve bends around pole",
+      "two waypoints complete without direct fallback",
+      "executed trajectory goes around pole",
+      "only C++ controller publishes PX4 setpoints",
+      "replacement while paused never auto resumes",
+      "cloud loss pauses and revokes planner",
+      "old task result and recovered cloud do not resume",
+      "blocked navigation service does not block setpoint loop",
+      "navigation service timeout pauses",
+      "late navigation service response cannot resume",
+      "real EGO rejects obstructed scene",
+      "external odometry divergence pauses",
+      "AUTO.LAND and normal disarm complete",
+      "second round updates datum and task ID",
+      "manual mode exit stops setpoints"
+    ],
+    "error": "",
+    "scope": "isolated fake MAVROS, production EGO/navigation/OFFBOARD; no hardware"
+  },
+  "integration_metrics": {
+    "passed": true,
+    "check_count": 17,
+    "runtime_seconds": 86.5379994240011,
+    "maximum_detour_y": 1.2167909504872243,
+    "first_goal_target_count": 511,
+    "first_goal_max_target_source_age": 0.13858532905578613
+  },
+  "direct_regression": {
+    "passed": true,
+    "checks": [
+      "startup command is inert while hold setpoints stream",
+      "OFFBOARD feedback, arm feedback, takeoff and automatic guiding",
+      "pause, resume, dwell and sequential waypoint completion",
+      "AUTO.LAND confirmation, ground feedback and normal disarm",
+      "second task cycle without node restart",
+      "session event, telemetry and configuration logs",
+      "initial OFFBOARD request plus three retries exits nonzero",
+      "blocked service does not block setpoint/status loop",
+      "four rejected arming requests stop progression",
+      "pose dropout stops stale target output",
+      "manual mode exit is never automatically reclaimed"
+    ],
+    "check_count": 11,
+    "scope": "fake MAVROS; no hardware commands or flight"
+  },
+  "ego_core_regression": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "isolated port unused",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "EGO local service available without occupancy map",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "official EGO rebound produces local spline",
+        "passed": true,
+        "detail": "EGO-Planner rebound B-spline, live local occupancy"
+      },
+      {
+        "name": "absolute Z preserved in flat scene",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "EGO rebounds around local obstacle",
+        "passed": true,
+        "detail": "EGO-Planner rebound B-spline, live local occupancy"
+      },
+      {
+        "name": "curved route deviates around obstacle",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "near-goal terminal chord avoids degenerate spline optimization",
+        "passed": true,
+        "detail": "EGO-Planner rebound B-spline, live local occupancy"
+      },
+      {
+        "name": "near-goal chord still rejects live collision",
+        "passed": true,
+        "detail": "current body intersects local occupancy"
+      },
+      {
+        "name": "sealed local corridor rejects",
+        "passed": true,
+        "detail": "EGO rebound failed or exceeded deadline"
+      },
+      {
+        "name": "measured AGL envelope rejects",
+        "passed": true,
+        "detail": "absolute target violates active height envelope"
+      },
+      {
+        "name": "current swept body collision rejects",
+        "passed": true,
+        "detail": "current body intersects local occupancy"
+      },
+      {
+        "name": "missing live cloud rejects",
+        "passed": true,
+        "detail": "invalid live cloud layout or size"
+      },
+      {
+        "name": "truncated cloud rejects before PCL conversion",
+        "passed": true,
+        "detail": "invalid live cloud layout or size"
+      },
+      {
+        "name": "nonfinite odometry rejects",
+        "passed": true,
+        "detail": "invalid or stale EGO snapshot: age=0.00379854 speed=0 clearance=0.6 z_limits=0.9,1.9"
+      },
+      {
+        "name": "unbounded coordinate rejects before voxel conversion",
+        "passed": true,
+        "detail": "invalid or stale EGO snapshot: age=0.00372797 speed=0 clearance=0.6 z_limits=0.9,1.9"
+      },
+      {
+        "name": "continuous derivative control bounds",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "distant goal uses bounded local horizon",
+        "passed": true,
+        "detail": "EGO-Planner rebound B-spline, live local occupancy"
+      },
+      {
+        "name": "no global route or vehicle publishers",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  "launch_checks": {
+    "passed": true,
+    "linked_combinations": 12,
+    "preserved_entries": 3,
+    "scope": "parse only; no nodes started"
+  }
+}

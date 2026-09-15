@@ -7,9 +7,10 @@ from time import monotonic
 
 import rospy
 import tf2_ros
-from ducted_msgs.msg import FlightControlStatus, FlightSetpoint, TerrainHeight
+from ducted_msgs.msg import FlightControlStatus, FlightSetpoint, TerrainHeight, PlannerContext
 from ducted_navigation.msg import NavigationStatus
 from ducted_navigation.planner import Hull, Planner, PlannerConfig, Pose, Terrain, Vec3
+from ducted_navigation.cloud_input import read_xyz
 from ducted_navigation.runtime import (
     NavigationRuntime, RuntimeConfig, lookup_exact, transform_points,
     transform_pose_full, rotate,
@@ -17,7 +18,6 @@ from ducted_navigation.runtime import (
 from ducted_navigation.srv import Navigate, NavigateResponse
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
-from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import Bool
 
@@ -57,6 +57,7 @@ class NavigationNode:
             raise rospy.ROSInitException("navigation and terrain AGL reference must be base_link")
 
         runtime_config = RuntimeConfig(
+            require_planner_context=rospy.get_param('~require_planner_context', False) is True,
             height_mode=rospy.get_param('~height_mode', 'terrain'),
             reference_z=float(rospy.get_param('~takeoff_reference_z', 0.)),
             source_timeout=float(rospy.get_param("~timeouts/source", 0.5)),
@@ -74,9 +75,12 @@ class NavigationNode:
                 default = PlannerConfig.__dataclass_fields__[field].default
                 planner_values[field] = rospy.get_param("~planner/" + field, default)
         planner_config = PlannerConfig(**planner_values)
+        frame_margin = float(rospy.get_param('~controller_frame_margin', 0.))
+        if not math.isfinite(frame_margin) or not 0 <= frame_margin <= planner_config.snapshot_motion_margin:
+            raise rospy.ROSInitException('controller frame margin exceeds reserved geometry margin')
         runtime_config = replace(
             runtime_config,
-            max_snapshot_translation=planner_config.snapshot_motion_margin,
+            max_snapshot_translation=planner_config.snapshot_motion_margin-frame_margin,
             max_snapshot_speed_increase=planner_config.snapshot_speed_margin,
             max_terrain_variance=planner_config.max_terrain_variance)
         hull = self._load_hull() if self.geometry_confirmed else None
@@ -93,6 +97,9 @@ class NavigationNode:
         self._watchdog_stop = threading.Event()
         self._plan_event = threading.Event()
         self._last_planned_stamp = 0.0
+        from ducted_navigation.ego_worker import EgoReferenceWorker
+        self._ego_worker = EgoReferenceWorker(self._ego_planner,self._plan_event.set,
+            lambda: self._now()[1:],runtime_config.source_timeout)
 
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -102,10 +109,15 @@ class NavigationNode:
         self.command_service = rospy.Service("command", Navigate, self._command)
         self.subscribers = (
             rospy.Subscriber("odom", Odometry, self._odom_callback, queue_size=1),
-            rospy.Subscriber("cloud", PointCloud2, self._cloud_callback, queue_size=1),
+            # A complete cloud is larger than rospy's 64 KiB default. Read a
+            # full queued frame so queue_size=1 can discard superseded frames.
+            rospy.Subscriber("cloud", PointCloud2, self._cloud_callback,
+                             queue_size=1, buff_size=32*1024*1024),
             rospy.Subscriber("terrain", TerrainHeight, self._terrain_callback, queue_size=1),
-            rospy.Subscriber("controller_status", FlightControlStatus,
-                             self._controller_callback, queue_size=1),
+            (rospy.Subscriber("planner_context", PlannerContext, self._context_callback, queue_size=1)
+             if runtime_config.require_planner_context else
+             rospy.Subscriber("controller_status", FlightControlStatus,
+                              self._controller_callback, queue_size=1)),
             rospy.Subscriber("base_ready", Bool, self._base_ready_callback, queue_size=1),
             rospy.Subscriber("external_ready", Bool, self._external_ready_callback, queue_size=1),
             rospy.Subscriber("terrain_ready", Bool, self._terrain_ready_callback, queue_size=1),
@@ -197,6 +209,19 @@ class NavigationNode:
         self.runtime.accept_controller(_stamp(message), wall, message.ready, ros_now)
         self._plan_event.set()
 
+    def _context_callback(self, message):
+        _, ros_now, wall = self._now()
+        previous = self.runtime.context_id
+        self.runtime.accept_context(
+            _stamp(message), wall, message.request_id,
+            message.ready and message.header.frame_id == self.odom_frame,
+            message.reference_valid, message.takeoff_reference_z, ros_now)
+        if previous != self.runtime.context_id:
+            self._try_reset_planner()
+        self._plan_event.set()
+        if self.runtime.context_id and not self.runtime.request_id:
+            self._publish_status('IDLE', 'planner context ready', math.inf, 0., 0.)
+
     def _readiness(self, name, message):
         _, ros_now, wall = self._now()
         self.runtime.accept_readiness(name, message.data, ros_now, wall, ros_now)
@@ -217,12 +242,11 @@ class NavigationNode:
         _, _ros_at_arrival, wall_at_arrival = self._now()
         stamp = _stamp(message)
         try:
-            points = tuple(point_cloud2.read_points(
-                message, field_names=("x", "y", "z"), skip_nans=False))
+            points = read_xyz(message)
             if message.header.frame_id != self.odom_frame:
                 transform = self._lookup(self.odom_frame, message.header.frame_id,
                                          message.header.stamp, stamp)
-                points = transform_points(points, *self._transform_parts(transform))
+                points = transform_points(points, *self._transform_parts(transform), as_array=True)
             _, ros_now, _ = self._now()
             accepted = self.runtime.accept_cloud(stamp, wall_at_arrival, self.odom_frame,
                                                  points, ros_now)
@@ -248,9 +272,9 @@ class NavigationNode:
             return NavigateResponse(False, "command must be goal or cancel")
         stamp = _stamp(request.target)
         frame = request.target.header.frame_id
-        _, ros_now, _ = self._now()
+        _, ros_now, wall = self._now()
         goal_token, reservation = self.runtime.begin_goal(
-            request.request_id, stamp, ros_now)
+            request.request_id, stamp, ros_now, wall)
         if not reservation.accepted:
             return NavigateResponse(False, reservation.message)
         try:
@@ -272,8 +296,8 @@ class NavigationNode:
                 tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             self.runtime.abort_goal(goal_token)
             return NavigateResponse(False, "goal or exact source-time transform is invalid")
-        _, ros_now, _ = self._now()
-        result = self.runtime.complete_goal(goal_token, goal, orientation, ros_now)
+        _, ros_now, wall = self._now()
+        result = self.runtime.complete_goal(goal_token, goal, orientation, ros_now, wall)
         if result.accepted:
             self._reset_planner()
             self._plan_event.set()
@@ -283,7 +307,7 @@ class NavigationNode:
         token, snapshot, reason = self.runtime.snapshot(
             ros_now, wall, clock=lambda: self._now()[1:])
         if reason:
-            state = "IDLE" if reason in ("no active navigation request", "controller missing or stale") else "STALE_INPUT"
+            state = "IDLE" if reason in ("no active navigation request", "controller missing or stale", "input source skew exceeds limit") else "STALE_INPUT"
             if reason != "input source skew exceeds limit":
                 self._reset_planner()
             self._publish_status(state, reason, math.inf, 0.0, 0.0)
@@ -291,32 +315,113 @@ class NavigationNode:
         with self._planner_lock:
             if snapshot.stamp <= self._last_planned_stamp:
                 return
-            # A request or cloud may have changed while this callback waited
-            # for the previous computation. Do not contaminate planner history.
-            _, plan_ros_now, plan_wall = self._now()
-            if not self.runtime.revalidate(token, plan_ros_now, plan_wall):
-                return
-            result = (self._ego_planner.plan(snapshot) if getattr(self,"_ego_planner",None)
-                      else self.planner.plan(snapshot))
-            self._last_planned_stamp = snapshot.stamp
-        _, commit_ros_now, commit_wall = self._now()
-        if not self.runtime.revalidate(token, commit_ros_now, commit_wall):
-            return
+            original_token, original_stamp = token, snapshot.stamp
+            saved = self.planner.__dict__.copy() if isinstance(self.planner, Planner) else None
+            published = False
+            try:
+                _, check_ros, check_wall = self._now()
+                if not self.runtime.revalidate(token, check_ros, check_wall):
+                    return
+                ego = getattr(self, '_ego_planner', None)
+                worker = getattr(self, '_ego_worker', None)
+                error = None
+                if worker is not None:
+                    try:
+                        ready = worker.poll(snapshot,(token.request_id,token.goal_generation))
+                        if ready is None:return
+                        reference,original_stamp=ready
+                    except ValueError as failure:
+                        error=str(failure)
+                elif ego:
+                    try:
+                        reference = ego.reference(snapshot)
+                    except ValueError as failure:
+                        error = str(failure)
+                    if self._stale_ego_snapshot(error):
+                        # A newer cloud can arrive while the bounded EGO RPC is
+                        # scheduled. Retry that transient age rejection once;
+                        # never turn it into a collision/route BLOCKED result.
+                        _, retry_ros, retry_wall = self._now()
+                        retry_token, retry_snapshot, retry_reason = self.runtime.snapshot(
+                            retry_ros, retry_wall, clock=lambda: self._now()[1:])
+                        if (retry_reason or
+                                retry_token.request_id != original_token.request_id or
+                                retry_token.goal_generation != original_token.goal_generation or
+                                retry_snapshot.stamp <= snapshot.stamp):
+                            return
+                        token, snapshot = retry_token, retry_snapshot
+                        try:
+                            reference = ego.reference(snapshot)
+                            error = None
+                        except ValueError as failure:
+                            error = str(failure)
+                        if self._stale_ego_snapshot(error):
+                            return
+                    original_stamp = snapshot.stamp
+                # Optimization can span a lidar scan. Recheck the short chord
+                # on the latest complete snapshot. If another cloud arrives
+                # during that check, retry the CHECK (not the optimization).
+                # Never advance command history for an unpublished result.
+                for _attempt in range(3 if ego else 1):
+                    if saved is not None:
+                        self.planner.__dict__.update(saved)
+                    if ego:
+                        _, latest_ros, latest_wall = self._now()
+                        token, snapshot, reason = self.runtime.snapshot(
+                            latest_ros, latest_wall, clock=lambda: self._now()[1:])
+                        if (reason or token.request_id != original_token.request_id or
+                                token.goal_generation != original_token.goal_generation or
+                                latest_ros-original_stamp > self.runtime.config.source_timeout):
+                            return
+                        if snapshot.stamp <= self._last_planned_stamp:
+                            return
+                        distance = math.sqrt(sum((getattr(snapshot.goal, axis)-getattr(snapshot.current, axis))**2
+                                                 for axis in ('x','y','z')))
+                        result = (self.planner.reject(snapshot,error) if error else
+                                  self.planner.plan_reference(snapshot,reference,distance))
+                    else:
+                        result = self.planner.plan(snapshot)
+                    if worker is not None and error is None:
+                        published = self._publish_result(token, snapshot, result,
+                            ((original_token.request_id,original_token.goal_generation),original_stamp))
+                    else:
+                        published = self._publish_result(token, snapshot, result)
+                    if published:
+                        self._last_planned_stamp = snapshot.stamp
+                        return
+                    if not self.enable_output or not (result.publish_target or result.hold_allowed):
+                        return
+            finally:
+                if not published and saved is not None:
+                    self.planner.__dict__.update(saved)
+
+    @staticmethod
+    def _stale_ego_snapshot(error):
+        return bool(error) and (error.startswith(
+            "EGO planning unavailable: invalid or stale EGO snapshot:") or
+            error == "EGO planning unavailable: EGO result exceeded snapshot deadline")
+
+    def _publish_result(self, token, snapshot, result, ego_reference=None):
+        _, ros_now, wall = self._now()
+        if not self.runtime.revalidate(token, ros_now, wall):
+            return False
         self._publish_status(result.state, result.reason, result.clearance,
                              result.progress, snapshot.stamp, token=token)
         self._publish_preview(result, snapshot.stamp, token=token)
-        if (not self.enable_output or not (result.publish_target or result.hold_allowed)
-                ):
-            return
+        if not self.enable_output or not (result.publish_target or result.hold_allowed):
+            return False
         message = FlightSetpoint()
         message.header.stamp = rospy.Time.from_sec(snapshot.stamp)
         message.header.frame_id = self.odom_frame
         message.request_id = token.request_id
         self._fill_pose(message.pose, result.target,
                         self._terminal_orientation(token.request_id, result.state))
-        self.runtime.commit_publish(
+        commit = lambda: self.runtime.commit_publish(
             token, snapshot.stamp, lambda: self._now()[1:],
             lambda: self.target_pub.publish(message))
+        if ego_reference is not None:
+            return self._ego_worker.commit_reference(*ego_reference,commit)
+        return commit()
 
     def _terminal_orientation(self, request_id, state):
         active_id, orientation = self.runtime.goal_orientation
@@ -327,11 +432,13 @@ class NavigationNode:
     def _reset_planner(self):
         with self._planner_lock:
             self.planner.reset_context()
+            if getattr(self,'_ego_worker',None) is not None:self._ego_worker.reset()
 
     def _try_reset_planner(self):
         if self._planner_lock.acquire(blocking=False):
             try:
                 self.planner.reset_context()
+                if getattr(self,'_ego_worker',None) is not None:self._ego_worker.reset()
             finally:
                 self._planner_lock.release()
 
@@ -368,7 +475,8 @@ class NavigationNode:
         # targets and preview paths still use the accepted cloud timestamp.
         message.header.stamp = now
         message.header.frame_id = self.odom_frame
-        message.request_id = token.request_id if token is not None else self.runtime.request_id
+        message.request_id = (token.request_id if token is not None else
+                              self.runtime.request_id or self.runtime.context_id)
         message.state, message.reason = state, reason
         ages = self.runtime.ages(ros_now)
         if token is not None:
@@ -391,7 +499,7 @@ class NavigationNode:
             _token, _snapshot, reason = self.runtime.snapshot(
                 ros_now, wall, clock=lambda: self._now()[1:])
             if reason:
-                state = "IDLE" if reason == "no active navigation request" else "STALE_INPUT"
+                state = "IDLE" if reason in ("no active navigation request", "input source skew exceeds limit") else "STALE_INPUT"
                 self._publish_status(state, reason, math.inf, 0.0, 0.0)
                 if reason != "input source skew exceeds limit":
                     self._try_reset_planner()
@@ -409,13 +517,10 @@ class NavigationNode:
     def _shutdown(self):
         self._watchdog_stop.set()
         self._plan_event.set()
+        if getattr(self,'_ego_worker',None) is not None:self._ego_worker.reset()
 
 
-if __name__ == "__main__":
-    rospy.init_node("ducted_navigation")
-    try:
-        NavigationNode()
-        rospy.spin()
-    except (ValueError, rospy.ROSInitException) as error:
-        rospy.logfatal("navigation initialization failed: %s", error)
-        raise SystemExit(1)
+if __name__ == '__main__':
+    import sys
+    sys.stderr.write('EGO 已冻结 (EGO is frozen); navigation production entry is disabled.\n')
+    sys.exit(2)

@@ -1,16 +1,10 @@
 <launch>
+  <!-- EGO is frozen. Arguments retained only to give existing invocations a clear refusal. -->
   <arg name="enable_output" default="false" />
   <arg name="geometry_confirmed" default="false" />
   <arg name="odom_topic" default="/mavros/odometry/out" />
-  <arg name="cloud_topic" default="/ducted/relocalization/registered_scan" />
+  <arg name="cloud_topic" default="/ducted/localization/cloud_registered" />
   <arg name="base_ready_topic" default="/ducted/system/ready" />
   <arg name="config_file" default="$(find ducted_navigation)/config/local_avoidance.yaml" />
-  <include file="$(find ducted_bringup)/launch/local_avoidance.launch">
-    <arg name="enable_output" value="$(arg enable_output)" />
-    <arg name="geometry_confirmed" value="$(arg geometry_confirmed)" />
-    <arg name="odom_topic" value="$(arg odom_topic)" />
-    <arg name="cloud_topic" value="$(arg cloud_topic)" />
-    <arg name="base_ready_topic" value="$(arg base_ready_topic)" />
-    <arg name="config_file" value="$(arg config_file)" />
-  </include>
+  <node pkg="ducted_bringup" type="frozen_ego.py" name="ego_frozen" output="screen" required="true" />
 </launch>

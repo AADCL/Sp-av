@@ -13,6 +13,7 @@ add_message_files(
   RCState.msg
   FlightSetpoint.msg
   FlightControlStatus.msg
+  PlannerContext.msg
 )
 
 add_service_files(

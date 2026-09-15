@@ -47,9 +47,9 @@ class RCMonitor:
             self.decoder.update(message.channels, message.header.stamp.to_sec(),
                                 rospy.get_time(), monotonic(), message.rssi)
             self.source_stamp = message.header.stamp
-            self._publish()
+            self._publish(new_measurement=True)
 
-    def _publish(self):
+    def _publish(self, new_measurement=False):
         state = self.decoder.evaluate(rospy.get_time(), monotonic())
         message = RCState()
         message.header.stamp = self.source_stamp if state.valid else rospy.Time.now()
@@ -61,6 +61,11 @@ class RCMonitor:
             message.valid, message.reason = False, 'base system not ready or heartbeat stale'
         elif not self.mapping_confirmed:
             message.valid, message.reason = False, 'RC mapping awaits physical confirmation'
+        # Each valid state must correspond to one new RC measurement. Replaying
+        # it from the watchdog makes strict downstream timestamp checks reject it.
+        # The watchdog still publishes invalidation immediately on loss/expiry.
+        if message.valid and not new_measurement:
+            return
         self.state_pub.publish(message)
         self.ready_pub.publish(message.valid and not message.kill_switch)
 

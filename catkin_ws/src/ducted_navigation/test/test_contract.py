@@ -1,6 +1,7 @@
 """Static safety and integration contract for the navigation package."""
 import pathlib
 import unittest
+import xml.etree.ElementTree as ET
 
 
 PKG = pathlib.Path(__file__).resolve().parents[1]
@@ -23,12 +24,11 @@ class NavigationContractTest(unittest.TestCase):
         self.assertIn("enable_output: false", config)
         self.assertIn("geometry_confirmed: false", config)
         self.assertIn('name="geometry_file" default="$(find ducted_bringup)/config/airframe_geometry.yaml"', launch)
-        self.assertLess(launch.index('file="$(arg geometry_file)"'),
-                        launch.index('file="$(arg config_file)"'))
+        # Frozen launch retains compatibility arguments but does not load runtime settings.
+        self.assertFalse(ET.fromstring(launch).findall(".//rosparam"))
         self.assertIn('name="enable_output" default="false"', launch)
         self.assertIn('name="geometry_confirmed" default="false"', launch)
         self.assertIn('name="config_file" default="$(find ducted_navigation)/config/local_avoidance.yaml"', launch)
-        self.assertIn('<rosparam command="load" file="$(arg config_file)"', launch)
 
     def test_navigation_has_no_flight_or_mission_authority(self):
         roots = (PKG / "scripts", PKG / "src", PKG / "CMakeLists.txt", PKG / "package.xml")
@@ -41,12 +41,15 @@ class NavigationContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, text)
         self.assertIn('rospy.Publisher("target", FlightSetpoint', text)
 
-    def test_launch_wires_only_documented_navigation_topics(self):
-        launch = (SOURCE_ROOT / "ducted_bringup/launch/local_avoidance.launch").read_text(
-            encoding="utf-8")
-        for topic in ("/ducted/navigation/command", "/ducted/navigation/status",
-                      "/ducted/navigation/preview", "/ducted/control/target"):
-            self.assertIn(topic, launch)
+    def test_frozen_launch_cannot_start_navigation_or_control(self):
+        for name in ("local_avoidance", "ego_planner", "ego_offboard"):
+            root = ET.parse(SOURCE_ROOT / ("ducted_bringup/launch/" + name + ".launch")).getroot()
+            nodes = root.findall(".//node")
+            self.assertEqual(len(nodes), 1)
+            self.assertEqual(nodes[0].attrib["type"], "frozen_ego.py")
+            self.assertEqual(nodes[0].attrib["required"], "true")
+            self.assertFalse(root.findall(".//include"))
+            self.assertFalse(root.findall(".//remap"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "checks": [
+    "startup command is inert while hold setpoints stream",
+    "OFFBOARD feedback, arm feedback, takeoff and automatic guiding",
+    "pause, resume, dwell and sequential waypoint completion",
+    "AUTO.LAND confirmation, ground feedback and normal disarm",
+    "second task cycle without node restart",
+    "session event, telemetry and configuration logs",
+    "initial OFFBOARD request plus three retries exits nonzero",
+    "blocked service does not block setpoint/status loop",
+    "four rejected arming requests stop progression",
+    "pose dropout stops stale target output",
+    "manual mode exit is never automatically reclaimed"
+  ],
+  "check_count": 11,
+  "scope": "fake MAVROS; no hardware commands or flight"
+}

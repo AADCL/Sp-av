@@ -1,0 +1,14 @@
+format_version: 2
+frame_id: map
+filter: ag_test_bayesian_temporal
+filter_source_commit: 9a309a93fd900abccb8775ebdb727c65946f5c0d
+occupancy_exported: false
+static_map_resolution: 0.05
+min_hit_scans: 8
+min_observation_span: 2
+loop_corrected_replay: true
+scan_count: 863
+static_point_count: 164366
+archive_directory: "/home/nrc/catkin_ws/logs/mapping-scans-hV8ZYI"
+replay_workers: 2
+export_seconds: 7.79911

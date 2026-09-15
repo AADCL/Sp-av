@@ -51,7 +51,7 @@ class NodeRuntimeTest(unittest.TestCase):
             "rospy": rospy,
             "tf2_ros": tf2,
             "ducted_msgs.msg": NS(FlightControlStatus=object, FlightSetpoint=object,
-                                   TerrainHeight=object),
+                                   TerrainHeight=object, PlannerContext=object),
             "ducted_navigation.msg": NS(NavigationStatus=object),
             "ducted_navigation.srv": NS(Navigate=object, NavigateResponse=object),
             "nav_msgs.msg": NS(Odometry=object, Path=object),
@@ -97,6 +97,108 @@ class NodeRuntimeTest(unittest.TestCase):
         node.target_pub.publish.assert_not_called()
         node._publish_preview.assert_not_called()
 
+    def test_ego_reference_is_rechecked_against_cloud_arriving_during_rpc(self):
+        self.output_messages()
+        for obstacles in ((), ((.01,0,1),)):
+            node=self.node()
+            node._now=lambda:(None,10.1,20.1)
+            node._ego_planner=MagicMock()
+            def compute(snapshot):
+                node.runtime.accept_cloud(10.05,20.05,'odom',obstacles)
+                return Pose(.2,0,1,0)
+            node._ego_planner.reference.side_effect=compute
+            node.planner=MagicMock()
+            def validate(snapshot, reference, distance):
+                self.assertEqual(snapshot.obstacles,obstacles)
+                self.assertEqual(snapshot.stamp,10.05)
+                return PlanResult('BLOCKED' if obstacles else 'AVOIDING','checked',
+                    Pose(.01,0,1,0),0,1,0,1,.1,not obstacles)
+            node.planner.plan_reference.side_effect=validate
+            node._plan_once(10.1,20.1)
+            node.planner.plan_reference.assert_called_once()
+            self.assertEqual(node.target_pub.publish.call_count,0 if obstacles else 1)
+            if not obstacles:self.assertEqual(node.target_pub.publish.call_args.args[0].header.stamp,10.05)
+
+    def test_new_cloud_during_guard_retries_check_without_recomputing_ego(self):
+        self.output_messages()
+        node=self.node();node._now=lambda:(None,10.1,20.1)
+        node._ego_planner=MagicMock();node.planner=MagicMock()
+        node._ego_planner.reference.return_value=Pose(.2,0,1,0)
+        def check(snapshot,reference,distance):
+            if snapshot.stamp==10:
+                node.runtime.accept_cloud(10.05,20.05,'odom',())
+            return PlanResult('AVOIDING','safe',Pose(.01,0,1,0),0,1,0,1,.1,True)
+        node.planner.plan_reference.side_effect=check
+        node._plan_once(10.1,20.1)
+        node._ego_planner.reference.assert_called_once()
+        self.assertEqual(node.planner.plan_reference.call_count,2)
+        node.target_pub.publish.assert_called_once()
+        self.assertEqual(node.target_pub.publish.call_args.args[0].header.stamp,10.05)
+
+    def test_stale_ego_request_retries_once_with_newer_cloud(self):
+        self.output_messages()
+        node=self.node();node._now=lambda:(None,10.1,20.1)
+        node._ego_planner=MagicMock();node.planner=MagicMock()
+
+        def reference(snapshot):
+            if snapshot.stamp == 10:
+                node.runtime.accept_cloud(10.05,20.05,'odom',())
+                raise ValueError('EGO planning unavailable: invalid or stale EGO snapshot: age=0.451')
+            return Pose(.2,0,1,0)
+
+        node._ego_planner.reference.side_effect=reference
+        node.planner.plan_reference.return_value=PlanResult(
+            'AVOIDING','safe',Pose(.01,0,1,0),0,1,0,1,.1,True)
+
+        node._plan_once(10.1,20.1)
+
+        self.assertEqual(node._ego_planner.reference.call_count,2)
+        self.assertEqual(node._ego_planner.reference.call_args.args[0].stamp,10.05)
+        node.planner.reject.assert_not_called()
+        node.target_pub.publish.assert_called_once()
+
+    def test_ego_age_deadline_without_new_cloud_waits_instead_of_blocking(self):
+        for error in (
+                'EGO planning unavailable: invalid or stale EGO snapshot: age=0.451',
+                'EGO planning unavailable: EGO result exceeded snapshot deadline'):
+            with self.subTest(error=error):
+                node=self.node();node._now=lambda:(None,10.1,20.1)
+                node._ego_planner=MagicMock();node.planner=MagicMock()
+                node._ego_planner.reference.side_effect=ValueError(error)
+
+                node._plan_once(10.1,20.1)
+
+                node._ego_planner.reference.assert_called_once()
+                node.planner.reject.assert_not_called()
+                node._publish_status.assert_not_called()
+                node.target_pub.publish.assert_not_called()
+
+    def test_unpublished_target_does_not_advance_command_history(self):
+        from ducted_navigation.trajectory_guard import TrajectoryGuard
+        from ducted_navigation.planner import PlannerConfig,Hull
+        self.output_messages()
+        node=self.node();clock=[None,10.1,20.1];node._now=lambda:tuple(clock)
+        node._ego_planner=MagicMock()
+        node._ego_planner.reference.return_value=Pose(.2,0,1,0)
+        node.planner=TrajectoryGuard(PlannerConfig(geometry_confirmed=True,min_agl=.1),
+            Hull(tuple((x,y,z) for x in (-.1,.1) for y in (-.1,.1) for z in (-.1,.1)),'base_link',declared_test_geometry=True))
+        node._publish_status.side_effect=lambda *a,**kw:clock.__setitem__(2,20.8)
+        node._plan_once(10.1,20.1)
+        node.target_pub.publish.assert_not_called()
+        self.assertIsNone(node.planner._previous_stamp)
+        self.assertIsNone(node.planner._previous_command_velocity)
+
+    def test_ego_reference_cannot_cross_goal_replacement(self):
+        node=self.node();node._now=lambda:(None,10.1,20.1)
+        node._ego_planner=MagicMock();node.planner=MagicMock()
+        def compute(snapshot):
+            node.runtime.set_goal('new',Pose(4,0,1,0),10.05)
+            return Pose(.2,0,1,0)
+        node._ego_planner.reference.side_effect=compute
+        node._plan_once(10.1,20.1)
+        node.planner.plan_reference.assert_not_called()
+        node.target_pub.publish.assert_not_called()
+
     def test_callback_generation_change_during_planning_revokes_output(self):
         node = self.node()
         node._now = lambda: (None, 10.1, 20.1)
@@ -110,6 +212,16 @@ class NodeRuntimeTest(unittest.TestCase):
         node.planner.plan.side_effect = mutate
         node._plan_once(10.1, 20.1)
         node.target_pub.publish.assert_not_called()
+
+    def test_cloud_ahead_of_odometry_waits_for_matching_sample(self):
+        node=self.node();node._now=lambda:(None,10.15,20.15)
+        node.runtime.accept_cloud(10.15,20.15,'odom',())
+        node._reset_planner=MagicMock()
+        node._plan_once(10.15,20.15)
+        self.assertEqual(node._publish_status.call_args.args[:2],
+                         ('IDLE','input source skew exceeds limit'))
+        node.target_pub.publish.assert_not_called()
+        node._reset_planner.assert_not_called()
 
     def test_monotonic_watchdog_revokes_with_frozen_ros_time(self):
         node = self.node()
@@ -236,7 +348,9 @@ class NodeRuntimeTest(unittest.TestCase):
 
     def test_cloud_then_late_terrain_plans_once_without_resetting_progress(self):
         self.output_messages()
-        self.module.point_cloud2.read_points = lambda *args, **kwargs: ()
+        decoder = patch.object(self.module, 'read_xyz', return_value=())
+        decoder.start()
+        self.addCleanup(decoder.stop)
         node = self.node()
         node._now = lambda: (None, 10.2, 20.2)
         node.planner = MagicMock()

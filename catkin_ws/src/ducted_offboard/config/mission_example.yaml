@@ -1,0 +1,4 @@
+frame_id: mission_start
+waypoints:
+  - {x: 0.0, y: 0.0, z: 1.0, yaw_deg: 0.0}
+  - {x: 3.0, y: 0.0, z: 1.0, yaw_deg: 0.0}

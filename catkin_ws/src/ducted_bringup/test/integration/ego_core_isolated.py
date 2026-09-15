@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """EGO service checks on master 11325, without a map or any vehicle node."""
+import sys
+sys.stderr.write('EGO 已冻结 (EGO is frozen); use offline algorithm unit tests.\n')
+sys.exit(2)
 import os
 os.environ['ROS_MASTER_URI'] = 'http://127.0.0.1:11325'
 os.environ['ROS_HOSTNAME'] = '127.0.0.1'
@@ -44,7 +47,8 @@ try:
 
     def request(start, goal, points, **changes):
         r = PlanLocalRequest()
-        r.header = Header(stamp=rospy.Time.now(), frame_id='odom')
+        stamp_age = changes.pop('stamp_age', 0.)
+        r.header = Header(stamp=rospy.Time.now()-rospy.Duration.from_sec(stamp_age), frame_id='odom')
         r.start.position.x,r.start.position.y,r.start.position.z = start
         r.goal.position.x,r.goal.position.y,r.goal.position.z = goal
         r.start.orientation.w=r.goal.orientation.w=1.
@@ -69,6 +73,13 @@ try:
     detour=request((-1.3,0,1.2),(1.3,0,1.2),floor+pole)
     check('EGO rebounds around local obstacle',detour.success,detour.reason)
     check('curved route deviates around obstacle', max(abs(p.pose.position.y) for p in detour.local_path.poses)>.6)
+    terminal=request((1.426,.14,1.2),(1.4,0,1.2),floor)
+    check('near-goal terminal chord avoids degenerate spline optimization',terminal.success,terminal.reason)
+    delayed=request((0,0,1.2),(.05,0,1.2),[(3.,3.,0.)],stamp_age=.43)
+    check('EGO accepts a usable snapshot within the shared 0.5 second deadline',
+          delayed.success,delayed.reason)
+    close_obstacle=request((1.426,.14,1.2),(1.4,0,1.2),floor+[(1.4,.07,1.2)])
+    check('near-goal chord still rejects live collision',not close_obstacle.success,close_obstacle.reason)
     wall=[(0.,y*.1,z*.1) for y in range(-45,46) for z in range(0,30)]
     blocked=request((-1.3,0,1.2),(1.3,0,1.2),floor+wall)
     check('sealed local corridor rejects',not blocked.success,blocked.reason)
@@ -76,6 +87,10 @@ try:
     check('measured AGL envelope rejects',not bad.success,bad.reason)
     near=request((0,0,1.2),(.8,0,1.2),floor+[(.2,0,1.2)])
     check('current swept body collision rejects',not near.success,near.reason)
+    check('occupied start reports obstacle coordinates and clearance',
+          all(s in near.reason for s in ('blockers=', 'nearest=', 'distance=', 'clearance=')),near.reason)
+    side=request((0,0,1.2),(.12,0,1.2),floor+[(0.,-.79,1.4)],clearance=.6864952)
+    check('separated side point is not blocked by isotropic voxel inflation',side.success,side.reason)
     empty=request((0,0,1.2),(.8,0,1.2),[])
     check('missing live cloud rejects',not empty.success,empty.reason)
     malformed=request((0,0,1.2),(.8,0,1.2),floor,cloud_data=b'\x00')

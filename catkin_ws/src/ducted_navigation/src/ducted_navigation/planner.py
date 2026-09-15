@@ -366,8 +366,18 @@ class Planner:
             # coordinates; never let float-to-int64 overflow wrap a cell.
             if _np.isfinite(grid).all() and (_np.abs(grid) < 2 ** 62).all():
                 keys = _np.floor(grid).astype(_np.int64)
-                cells, inverse, counts = _np.unique(keys, axis=0, return_inverse=True,
-                                                    return_counts=True)
+                lower, upper = keys.min(axis=0), keys.max(axis=0)
+                widths = [int(upper[i])-int(lower[i])+1 for i in range(3)]
+                if widths[0]*widths[1]*widths[2] < 2**62:
+                    # One exact integer key has the same lexicographic cell
+                    # order, without NumPy's slow structured-row comparison.
+                    shifted = keys-lower
+                    linear = (shifted[:, 0]*widths[1]+shifted[:, 1])*widths[2]+shifted[:, 2]
+                    cells, inverse, counts = _np.unique(linear, return_inverse=True,
+                                                        return_counts=True)
+                else:
+                    cells, inverse, counts = _np.unique(keys, axis=0, return_inverse=True,
+                                                        return_counts=True)
                 totals = _np.zeros((len(cells), 3), dtype=_np.float64)
                 # add.at retains input addition order for repeated cells;
                 # reduceat/pairwise sums would change boundary centroids.
@@ -395,6 +405,19 @@ class Planner:
         high = base_z + self.hull.top + self.config.ceiling_clearance + self.config.snapshot_motion_margin
         return low <= point_z <= high
 
+    def _height_candidates(self, start, end, obstacles):
+        # Same vertical broad phase as _segment_clearance's interval test,
+        # batched before the scalar exact intersection. No observed point is
+        # removed from occupancy, persistence, prediction or another segment.
+        if _np is None or len(obstacles) < 256:
+            return obstacles
+        low = min(start.z, end.z) + self.hull.bottom - self.config.floor_clearance - self.config.snapshot_motion_margin
+        high = max(start.z, end.z) + self.hull.top + self.config.ceiling_clearance + self.config.snapshot_motion_margin
+        # Retain boundary points despite round-off from regrouped addition.
+        padding = 1e-12 * max(1., abs(low), abs(high))
+        array = _np.asarray(obstacles, dtype=_np.float64)
+        return array[(array[:, 2] >= low-padding) & (array[:, 2] <= high+padding)].tolist()
+
     def _segment_clearance(self, start, end, obstacles, inflation):
         dx, dy = end.x - start.x, end.y - start.y
         length2 = dx * dx + dy * dy
@@ -402,7 +425,7 @@ class Planner:
         dz = end.z - start.z
         low_offset = self.hull.bottom - self.config.floor_clearance - self.config.snapshot_motion_margin
         high_offset = self.hull.top + self.config.ceiling_clearance + self.config.snapshot_motion_margin
-        for ox, oy, oz in obstacles:
+        for ox, oy, oz in self._height_candidates(start, end, obstacles):
             base_low, base_high = oz - high_offset, oz - low_offset
             if abs(dz) <= 1e-15:
                 z_interval = ((0.0, 1.0) if base_low <= start.z <= base_high else None)
@@ -439,7 +462,7 @@ class Planner:
         return minimum
 
     def _point_collision(self, pose, obstacles, inflation):
-        for ox, oy, oz in obstacles:
+        for ox, oy, oz in self._height_candidates(pose, pose, obstacles):
             if (math.hypot(ox - pose.x, oy - pose.y) <= inflation
                     and self._vertical_intersects(oz, pose.z, pose.z, 0.0)):
                 return True

@@ -63,6 +63,7 @@ class ScaffoldContractTest(unittest.TestCase):
             "float64 agl",
             "float64 variance",
             "bool valid",
+            "string reason",
         ])
 
     def test_excluded_platform_and_ground_mode_are_absent(self):

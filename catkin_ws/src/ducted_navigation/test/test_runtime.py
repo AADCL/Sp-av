@@ -378,6 +378,28 @@ class NavigationRuntimeTest(unittest.TestCase):
         self.assertAlmostEqual(point[0], math.cos(angle))
         self.assertAlmostEqual(point[2], -math.sin(angle))
 
+    def test_dense_cloud_matches_full_quaternion_transform(self):
+        from ducted_navigation.runtime import rotate
+        points = tuple((math.sin(i), math.cos(i / 3), i / 500.) for i in range(1000))
+        rotation, translation = (.4, -.6, .2, 1.8), (.13, -.4, 2.)
+        actual = transform_points(points, translation, rotation)
+        for point, output in zip(points, actual):
+            expected = rotate(point, rotation)
+            for axis in range(3):
+                self.assertAlmostEqual(output[axis], expected[axis] + translation[axis], places=12)
+
+    def test_dense_cloud_validation_rejects_one_bad_point_and_owns_values(self):
+        state = runtime()
+        points = [[i / 100., 0., 1.] for i in range(1000)]
+        self.assertTrue(state.accept_cloud(10, 20, 'odom', points, 10))
+        points[0][0] = 999.
+        self.assertEqual(state._records['cloud']['value'][0], (0., 0., 1.))
+        for stamp, bad in [(11., [1., 2.]), (12., [1., 2., math.nan]),
+                           (13., [1., 2., math.inf]), (14., ['bad', 2., 1.])]:
+            points[500] = bad
+            self.assertFalse(state.accept_cloud(stamp, stamp + 10, 'odom', points, stamp))
+            self.assertFalse(state._records['cloud']['valid'])
+
     def test_full_pose_transform_preserves_tilted_orientation(self):
         angle = math.pi / 5
         rotation = (0, math.sin(angle / 2), 0, math.cos(angle / 2))

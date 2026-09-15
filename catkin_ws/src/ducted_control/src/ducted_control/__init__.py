@@ -1,1 +1,1 @@
-"""Flight and RC support for the ducted quadrotor."""
+"""RC input support; the previous automatic flight implementation was removed."""

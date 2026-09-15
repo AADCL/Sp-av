@@ -1,0 +1,15 @@
+{
+  "px4_tag": "v1.12.3",
+  "scope": "original functions; synthetic inputs, no flight dynamics or SITL",
+  "result": {
+    "checks": 16,
+    "passed": true,
+    "native_speed": 0.2,
+    "descend_intent_threshold": 0.18
+  },
+  "sources": {
+    "src/modules/flight_mode_manager/tasks/AutoMapper/FlightTaskAutoMapper.cpp": "fb9def4e743dc89a7e2cbad33f7307a34c10b5ba7351de5d6a3ba42f448d50ab",
+    "src/modules/land_detector/MulticopterLandDetector.cpp": "9648687831359b3416835f95208170251c8675ac34c80daafa7dc3e928b3dd1a",
+    "src/lib/mathlib/math/Functions.hpp": "a74eaca9862c9b1ab13ccf124b65bc2dcf187cdec06c8b71732b89e223a730d1"
+  }
+}
